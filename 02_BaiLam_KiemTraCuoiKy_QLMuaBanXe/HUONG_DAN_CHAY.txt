@@ -1,0 +1,83 @@
+==============================================================================================
+HƯỚNG DẪN CHẤM BÀI, CẤU HÌNH CSDL & THuyết MINH THIẾT KẾ
+ĐỀ KIỂM TRA CUỐI KỲ - ĐỀ 01: QUẢN LÝ KHÁCH HÀNG MUA XE (CSDL: QLMuaBanXe)
+Họ và tên sinh viên : Trần Mạnh Hùng
+Mã số sinh viên     : AT21N0129
+==============================================================================================
+
+1. CẤU TRÚC THƯ MỤC PROJECT TRONG FILE NÉN (.ZIP)
+----------------------------------------------------------------------------------------------
+- src/                         : Mã nguồn 7 lớp Java tách rời chuẩn OOP:
+    + KhachHang.java           : Lớp thực thể bảng Khach_Hang
+    + Xe.java                  : Lớp thực thể bảng Xe (kèm hàm định dạng tiền tệ & hằng số thuế)
+    + ChiTietMuaXe.java        : Lớp thực thể kết hợp bảng Mua_Xe + Khach_Hang + Xe
+    + MuaBanXeRepository.java  : Tầng kết nối CSDL SQL Server QLMuaBanXe (JDBC + cấu hình động)
+    + BaoCaoMuaXeDialog.java   : Cửa sổ Báo cáo thống kê khách hàng mua xe (Câu 2h)
+    + QuanLyMuaBanXeGUI.java   : Cửa sổ chính chương trình (Câu 2a -> 2i)
+    + DeCuoiKyAutoGradingSuite.java : Bộ kiểm thử tự động 31/31 test cases (chạy được cả khi có
+                                      hoặc không có SQL Server trên máy chấm)
+- lib/
+    + mssql-jdbc-13.6.0.jre11.jar : Thư viện Microsoft JDBC Driver cho SQL Server đi kèm sẵn
+- OnlineGDB/
+    + Main.java                : Bản gộp toàn bộ các lớp với `public class Main` ở trên cùng
+                                 (tương ứng 100% với nội dung trong file Word .docx để Quý Thầy/Cô
+                                 Ctrl+A -> Ctrl+C -> dán vào https://www.onlinegdb.com/online_java_compiler)
+- config.properties            : File cấu hình kết nối SQL Server (host, port, user, password, instance)
+- QLMuaBanXe.sql               : Script tạo CSDL, 3 bảng, khóa chính/ngoại, CHECK và dữ liệu mẫu (UTF-8 BOM)
+- QLMuaBanXe.bak               : File sao lưu (Backup) CSDL SQL Server QLMuaBanXe
+- .project, .classpath         : File cấu hình project chuẩn Eclipse / IntelliJ / VS Code
+
+
+2. CÁCH KHỞI TẠO CSDL & CHẠY CHƯƠNG TRÌNH TRÊN MÁY GIÁM KHẢO
+----------------------------------------------------------------------------------------------
+* Bước 1 (Tùy chọn - Khởi tạo CSDL SQL Server):
+  - Mở SQL Server Management Studio (SSMS), mở file `QLMuaBanXe.sql` và nhấn Execute (F5),
+    HOẶC Restore Database từ file `QLMuaBanXe.bak`.
+  - Mở file `config.properties` nếu muốn đổi tài khoản đăng nhập SQL Server (ví dụ:
+    `db.integratedSecurity=false`, `db.user=sa`, `db.password=123456`, `db.host=127.0.0.1`).
+
+* Bước 2 (Biên dịch và chạy giao diện chính):
+  - Cách 1 (Mở bằng Eclipse / IntelliJ / VS Code):
+    Import thư mục giải nén -> Chạy lớp `QuanLyMuaBanXeGUI.java` (hoặc `DeCuoiKyAutoGradingSuite.java`).
+  - Cách 2 (Chạy bằng dòng lệnh Command Prompt / PowerShell):
+    javac -encoding UTF-8 -cp ".;lib/*" -d out src/*.java
+    java -cp "out;lib/*" QuanLyMuaBanXeGUI
+
+* Bước 3 (Chạy bộ kiểm thử tự động 31/31 Test Cases):
+    java -cp "out;lib/*" DeCuoiKyAutoGradingSuite
+  (Lưu ý: Bộ test tự động kết nối SQL Server thật nếu có; nếu máy chấm không cài SQL Server,
+   bộ test tự động kích hoạt chế độ Giả lập CSDL chuẩn với đúng 4 xe & 6 giao dịch mẫu để
+   kiểm chứng toàn bộ 31/31 test cases).
+
+* Bước 4 (Kiểm tra trên OnlineGDB theo Lưu ý cuối đề):
+  - Mở file Word `AT21N0129-Trần Mạnh Hùng-QLMuaBanXe.docx` (hoặc `OnlineGDB/Main.java`),
+    nhấn Ctrl+A -> Ctrl+C, dán vào https://www.onlinegdb.com/online_java_compiler (Language: Java)
+    và nhấn Run.
+
+
+3. THUYẾT MINH CÁC QUYẾT ĐỊNH THIẾT KẾ BÁM SÁT ĐỀ THI
+----------------------------------------------------------------------------------------------
+(a) Về kiểu dữ liệu `VARCHAR(20)` cho `MaKH`, `MaXe` và `CMND`:
+    - Trong văn bản Câu 1 có ghi gợi ý `MaKH (số nguyên)`, `MaXe (số nguyên)`, `CMND (Số)` kèm lưu ý
+      cho phép: *"Hoặc sinh viên tùy ý xây dựng lại các bảng dữ liệu để lưu trữ hợp lý dữ liệu..."*.
+    - Tuy nhiên, trên Hình chụp Cửa sổ chính (Trang 1) và Hình chụp Cửa sổ Báo cáo (Trang 3) của đề thi,
+      dữ liệu mẫu thực tế có dạng chuỗi ký tự chữ-số: `Mã xe = XE01`, `Mã KH = KH01`, `Mã xe báo cáo = KH001`,
+      và số `CMND` có thể bắt đầu bằng chữ số `0` (ví dụ `079199001`).
+    - Do đó, bài làm sử dụng `VARCHAR(20)` cho `MaKH`, `MaXe` để lưu trữ chính xác các mã `'XE01'`, `'KH01'`,
+      `'KH001'` như hình đề, và dùng `VARCHAR(20)` kèm ràng buộc `CHECK (CMND NOT LIKE '%[^0-9]%' AND LEN(CMND) >= 8)`
+      để đảm bảo `CMND` chỉ chứa chữ số nhưng không bị mất số `0` ở đầu.
+
+(b) Về khóa chính bảng `Mua_Xe` và cột `GhiChu`:
+    - Khóa chính bảng `Mua_Xe` được đặt là `(MaKH, MaXe, NgayMua)` để một khách hàng có thể mua thêm cùng
+      một mẫu xe vào các ngày khác nhau, đồng thời bổ sung cột `GhiChu NVARCHAR(100)` để hiển thị lên
+      cột thứ 5 (`Ghi chú`) của Cửa sổ Báo cáo ở Trang 3 đề thi.
+
+(c) Về công thức tính `Thành tiền = Đơn giá × Số lượng × 1.10`:
+    - Quan sát Hình chụp Cửa sổ chính ở Trang 1 đề thi:
+      + `Đơn giá` của xe `XE01` (`Suzuki X-Bike`) = `21,500,000`
+      + `Số lượng` khách hàng `KH01` (`Nguyễn Văn Sơn`) mua = `1`
+      + Cột `Thành tiền` và ô `Tổng thành tiền` hiển thị = `23,650,000`
+    - Ta có tỉ lệ chính xác: `23,650,000 / (21,500,000 × 1) = 1.10` (tức Đơn giá cộng thêm 10% thuế VAT
+      & lệ phí trước bạ). Công thức `Thành tiền = Math.round(Số lượng × Đơn giá × 1.10)` giúp kết quả hiển thị
+      khớp tuyệt đối 100% với con số `23,650,000` trên hình đề.
+==============================================================================================

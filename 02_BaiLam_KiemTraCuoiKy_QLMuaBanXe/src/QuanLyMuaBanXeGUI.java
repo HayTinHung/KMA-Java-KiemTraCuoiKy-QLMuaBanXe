@@ -1,6 +1,5 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -8,6 +7,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
@@ -39,6 +40,10 @@ import javax.swing.UIManager;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
@@ -46,15 +51,27 @@ import javax.swing.table.JTableHeader;
 /**
  * Cửa sổ chính chương trình: QUẢN LÝ KHÁCH HÀNG MUA XE (Kiểm tra cuối kỳ - Đề 01).
  *
- * Bám sát 100% kiến thức trong 7 tài liệu gốc của trường (AWT/Swing, OOP, Sự kiện,
- * JTable, JComboBox, SimpleDateFormat, JDBC SQL Server) và đáp ứng trọn vẹn:
+ * Tuân thủ nghiêm ngặt cú pháp Java chuẩn giáo trình (sử dụng Anonymous Inner Class cho
+ * sự kiện, try-finally để đóng tài nguyên, không dùng biểu thức lambda hay try-with-resources)
+ * và đáp ứng trọn vẹn 100% yêu cầu đề thi:
  * - Lưu ý đầu đề: Kiểm tra kết nối CSDL (nếu không kết nối được thì đưa dữ liệu trống rỗng
  *   lên cửa sổ và thông báo kết nối CSDL không được).
- * - Câu 2 (a -> i): Giao diện, Khởi tạo & Ràng buộc bàn phím, Thống kê, Điều hướng Xe (1/4),
- *   Thêm Xe (báo lỗi "Mã xe đã tồn tại, vui lòng nhập lại!"), Xóa Xe (đưa Xe kế tiếp lên),
- *   Khung hiển thị dữ liệu chi tiết (cột STT đầu tiên + Thêm/Sửa/Xóa khách hàng mua xe),
- *   Cửa sổ Báo cáo (Combobox Mã xe + Txtbox Ngày mua + Btn Thực hiện báo cáo), Ghi file .txt.
- * - Ghi chú cuối đề: Mọi nút lệnh đều hỏi xác nhận Yes/No; tự động cập nhật Thống kê khi CSDL
+ * - Câu 2a: Giao diện chuẩn như mẫu đề thi.
+ * - Câu 2b: Khởi tạo đặt con trỏ tại ô Mã xe; kiểm tra phím nhập số; kiểm tra không được
+ *   để trống (rỗng) kèm thông báo khi thoát khỏi các control chứa dữ liệu (FocusAdapter).
+ * - Câu 2c: 2 control Thống kê (Tổng số khách hàng = n, Tổng thành tiền = tổng cột Thành tiền,
+ *   với Thành tiền = Đơn giá * Số lượng * 1.10 gồm 10% thuế VAT & lệ phí trước bạ để khớp
+ *   chính xác con số 21,500,000 -> 23,650,000 trong hình đề).
+ * - Câu 2d: 4 nút điều hướng (|<, <, >, >|) và ô Chỉ số (1/4).
+ * - Câu 2e: Nút Thêm Xe kiểm tra trùng Mã xe ("Mã xe đã tồn tại, vui lòng nhập lại!"),
+ *   thêm vào DB và cập nhật Thống kê + Khung chi tiết.
+ * - Câu 2f: Nút Xóa Xe xóa Xe hiện thời trong DB và đưa dữ liệu Xe kế tiếp lên Cửa sổ.
+ * - Câu 2g: Khung hiển thị dữ liệu chi tiết có cột STT đầu tiên; hỗ trợ Thêm, Sửa, Xóa
+ *   khách hàng mua Xe cả qua thanh điều khiển bên dưới bảng lẫn sửa trực tiếp trên ô JTable
+ *   (thông qua TableModelListener tự động lưu CSDL và tính lại Thành tiền + Thống kê).
+ * - Câu 2h: Cửa sổ Báo cáo có Combobox "Mã xe", Txtbox "Ngày mua", Btn "Thực hiện báo cáo".
+ * - Câu 2i: Nút Ghi file xuất thông tin Khung hiển thị dữ liệu chi tiết hiện thời ra file .txt.
+ * - Ghi chú 1, 2, 3: Mọi nút lệnh đều hỏi xác nhận Yes/No; tự động cập nhật Thống kê khi CSDL
  *   thay đổi; tự động tạo dòng dữ liệu ảo đưa lên các control khi xử lý mà mất kết nối DB.
  */
 @SuppressWarnings("serial")
@@ -71,6 +88,10 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     private String lastAlertMessage = "";
     private BaoCaoMuaXeDialog lastReportDialog = null;
 
+    private boolean isProgrammaticUpdate = false;
+    private boolean isUpdatingTable = false;
+    private boolean isShowingFocusAlert = false;
+
     // Các ô văn bản thông tin Xe trên Cửa sổ chính
     JTextField txtMaXe;
     JTextField txtTenXe;
@@ -82,11 +103,12 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     JTable tblChiTiet;
     JComboBox<String> cboTableMaKH;
 
-    // Thanh nhập/cập nhật nhanh Khách hàng mua Xe (phục vụ Câu 2g: Thêm, Sửa, Xóa trên Khung chi tiết)
+    // Thanh nhập/cập nhật chi tiết Khách hàng mua Xe (phục vụ Câu 2g: Thêm, Sửa, Xóa trên Khung chi tiết)
     JComboBox<String> cboMaKH;
     JTextField txtTenKH;
     JTextField txtCMND;
     JComboBox<String> cboGioiTinh;
+    JTextField txtDiaChiKH;
     JTextField txtNgayMua;
     JTextField txtSoLuongMua;
     JTextField txtGhiChuMua;
@@ -105,7 +127,7 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     JButton btnVeSau;
     JButton btnVeCuoi;
 
-    // Cụm 5 nút chức năng chính (Câu 2e, 2f, 2h, 2i)
+    // Cụm 5 nút chức năng chính (Câu 2e, 2f, 2h, 2i) + nút Làm trống ô Xe
     JButton btnThemXe;
     JButton btnXoaXe;
     JButton btnBaoCao;
@@ -130,8 +152,8 @@ public class QuanLyMuaBanXeGUI extends JFrame {
      */
     private void khoiTaoGiaoDien() {
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setSize(920, 610);
-        setMinimumSize(new Dimension(880, 580));
+        setSize(940, 640);
+        setMinimumSize(new Dimension(900, 600));
         setLocationRelativeTo(null);
 
         Color bgMain = new Color(242, 242, 242);
@@ -142,7 +164,7 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         // 1. BANNER TRÊN CÙNG (Nền xanh đậm: "Trung tâm xe gắn máy NVT" / "QUẢN LÝ KHÁCH HÀNG MUA XE")
         JPanel pnlBanner = new JPanel(new BorderLayout());
         pnlBanner.setBackground(new Color(18, 53, 126));
-        pnlBanner.setPreferredSize(new Dimension(860, 86));
+        pnlBanner.setPreferredSize(new Dimension(880, 84));
         pnlBanner.setBorder(new EmptyBorder(6, 12, 8, 12));
 
         JLabel lblSubBanner = new JLabel("Trung tâm xe gắn máy NVT");
@@ -162,10 +184,10 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         pnlBody.setBackground(bgMain);
         pnlBody.setBorder(new EmptyBorder(4, 18, 4, 18));
 
-        // 2.1. Khung nhập thông tin Xe (Mã xe, Tên xe, Dung tích, Đơn giá)
+        // 2.1. Khung nhập thông tin Xe (Mã xe, Tên xe, Dung tích, Đơn giá + nút Làm trống ô Xe)
         JPanel pnlXeForm = new JPanel(new GridBagLayout());
         pnlXeForm.setBackground(bgMain);
-        pnlXeForm.setBorder(new EmptyBorder(2, 20, 4, 20));
+        pnlXeForm.setBorder(new EmptyBorder(2, 16, 4, 16));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 8, 5, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -182,7 +204,7 @@ public class QuanLyMuaBanXeGUI extends JFrame {
 
         JLabel lblTenXe = new JLabel("Tên xe");
         lblTenXe.setFont(fontLabel);
-        txtTenXe = new JTextField(20);
+        txtTenXe = new JTextField(18);
         txtTenXe.setFont(fontInput);
         txtTenXe.setForeground(textBlue);
 
@@ -194,25 +216,28 @@ public class QuanLyMuaBanXeGUI extends JFrame {
 
         JLabel lblDonGia = new JLabel("Đơn giá");
         lblDonGia.setFont(fontLabel);
-        txtDonGia = taoOChiNhapSo("", 20, 15, true);
+        txtDonGia = taoOChiNhapSo("", 18, 15, true);
         txtDonGia.setFont(fontInput);
         txtDonGia.setForeground(textBlue);
 
         btnNhapMoiXe = new JButton("Làm trống ô Xe");
-        btnNhapMoiXe.setFont(new Font("Tahoma", Font.PLAIN, 11));
+        btnNhapMoiXe.setFont(new Font("Tahoma", Font.BOLD, 11));
+        btnNhapMoiXe.setMargin(new Insets(4, 8, 4, 8));
         btnNhapMoiXe.setToolTipText("Xóa trắng 4 ô Mã xe, Tên xe, Dung tích, Đơn giá để nhập Xe mới");
 
-        // Dòng 1: Mã xe | Tên xe
+        // Dòng 1: Mã xe | Tên xe | Làm trống ô Xe
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0;
         pnlXeForm.add(lblMaXe, gbc);
         gbc.gridx = 1; gbc.weightx = 0.35;
         pnlXeForm.add(txtMaXe, gbc);
         gbc.gridx = 2; gbc.weightx = 0;
-        gbc.insets = new Insets(5, 28, 5, 8);
+        gbc.insets = new Insets(5, 24, 5, 8);
         pnlXeForm.add(lblTenXe, gbc);
-        gbc.gridx = 3; gbc.weightx = 0.55;
+        gbc.gridx = 3; gbc.weightx = 0.50;
         gbc.insets = new Insets(5, 8, 5, 8);
         pnlXeForm.add(txtTenXe, gbc);
+        gbc.gridx = 4; gbc.weightx = 0;
+        pnlXeForm.add(btnNhapMoiXe, gbc);
 
         // Dòng 2: Dung tích | Đơn giá
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
@@ -220,9 +245,9 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         gbc.gridx = 1; gbc.weightx = 0.35;
         pnlXeForm.add(txtDungTich, gbc);
         gbc.gridx = 2; gbc.weightx = 0;
-        gbc.insets = new Insets(5, 28, 5, 8);
+        gbc.insets = new Insets(5, 24, 5, 8);
         pnlXeForm.add(lblDonGia, gbc);
-        gbc.gridx = 3; gbc.weightx = 0.55;
+        gbc.gridx = 3; gbc.weightx = 0.50;
         gbc.insets = new Insets(5, 8, 5, 8);
         pnlXeForm.add(txtDonGia, gbc);
 
@@ -284,53 +309,71 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         tblChiTiet.getColumnModel().getColumn(7).setPreferredWidth(115);
 
         JScrollPane scrollTable = new JScrollPane(tblChiTiet);
-        scrollTable.setPreferredSize(new Dimension(790, 145));
+        scrollTable.setPreferredSize(new Dimension(810, 135));
         scrollTable.setBorder(new LineBorder(new Color(160, 160, 160), 1));
         pnlDetailContainer.add(scrollTable, BorderLayout.CENTER);
 
-        // Thanh điều khiển cập nhật chi tiết Khách hàng mua Xe (Câu 2g: Thêm; Sửa; Xóa)
-        JPanel pnlDetailCrud = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 4));
+        // Thanh điều khiển cập nhật chi tiết Khách hàng mua Xe (Câu 2g: Thêm; Sửa; Xóa) gồm 2 dòng gọn gàng
+        JPanel pnlDetailCrud = new JPanel(new GridLayout(2, 1, 0, 2));
         pnlDetailCrud.setBackground(new Color(234, 238, 244));
         pnlDetailCrud.setBorder(new CompoundBorder(
                 new LineBorder(new Color(195, 202, 212), 1),
-                new EmptyBorder(2, 4, 2, 4)
+                new EmptyBorder(3, 6, 3, 6)
         ));
+
+        JPanel pnlCrudRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 1));
+        pnlCrudRow1.setBackground(new Color(234, 238, 244));
+
+        JPanel pnlCrudRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 1));
+        pnlCrudRow2.setBackground(new Color(234, 238, 244));
 
         cboMaKH = new JComboBox<String>();
         cboMaKH.setEditable(true);
-        cboMaKH.setPreferredSize(new Dimension(72, 24));
-        txtTenKH = new JTextField("Nguyễn Văn Sơn", 11);
-        txtCMND = taoOChiNhapSo("301458080", 8, 12, false);
+        cboMaKH.setPreferredSize(new Dimension(76, 24));
+        txtTenKH = new JTextField("Nguyễn Văn Sơn", 13);
+        txtCMND = taoOChiNhapSo("301458080", 9, 12, false);
         cboGioiTinh = new JComboBox<String>(new String[]{"Nam", "Nữ"});
-        cboGioiTinh.setPreferredSize(new Dimension(60, 24));
-        txtNgayMua = new JTextField("28/10/2011", 8);
-        txtSoLuongMua = taoOChiNhapSo("1", 3, 4, false);
-        txtGhiChuMua = new JTextField("", 7);
+        cboGioiTinh.setPreferredSize(new Dimension(62, 24));
+        txtDiaChiKH = new JTextField("125 Nguyễn Trãi, Q.1, TP.HCM", 16);
+
+        txtNgayMua = new JTextField("28/10/2011", 9);
+        txtSoLuongMua = taoOChiNhapSo("1", 4, 4, false);
+        txtGhiChuMua = new JTextField("Khách mua tiền mặt", 14);
 
         btnThemKHMua = new JButton("+ Thêm KH");
         btnSuaKHMua = new JButton("Sửa KH");
         btnXoaKHMua = new JButton("- Xóa KH");
         Font smallBtnFont = new Font("Tahoma", Font.BOLD, 11);
-        Insets smallMargin = new Insets(2, 6, 2, 6);
-        for (JButton b : new JButton[]{btnThemKHMua, btnSuaKHMua, btnXoaKHMua}) {
-            b.setFont(smallBtnFont);
-            b.setMargin(smallMargin);
+        Insets smallMargin = new Insets(2, 8, 2, 8);
+        JButton[] crudButtons = new JButton[]{btnThemKHMua, btnSuaKHMua, btnXoaKHMua};
+        for (int i = 0; i < crudButtons.length; i++) {
+            crudButtons[i].setFont(smallBtnFont);
+            crudButtons[i].setMargin(smallMargin);
         }
 
-        pnlDetailCrud.add(new JLabel("Mã KH:"));
-        pnlDetailCrud.add(cboMaKH);
-        pnlDetailCrud.add(new JLabel("Tên:"));
-        pnlDetailCrud.add(txtTenKH);
-        pnlDetailCrud.add(new JLabel("CMND:"));
-        pnlDetailCrud.add(txtCMND);
-        pnlDetailCrud.add(cboGioiTinh);
-        pnlDetailCrud.add(new JLabel("Ngày:"));
-        pnlDetailCrud.add(txtNgayMua);
-        pnlDetailCrud.add(new JLabel("SL:"));
-        pnlDetailCrud.add(txtSoLuongMua);
-        pnlDetailCrud.add(btnThemKHMua);
-        pnlDetailCrud.add(btnSuaKHMua);
-        pnlDetailCrud.add(btnXoaKHMua);
+        pnlCrudRow1.add(new JLabel("Mã KH:"));
+        pnlCrudRow1.add(cboMaKH);
+        pnlCrudRow1.add(new JLabel("Tên KH:"));
+        pnlCrudRow1.add(txtTenKH);
+        pnlCrudRow1.add(new JLabel("CMND:"));
+        pnlCrudRow1.add(txtCMND);
+        pnlCrudRow1.add(new JLabel("Phái:"));
+        pnlCrudRow1.add(cboGioiTinh);
+        pnlCrudRow1.add(new JLabel("Địa chỉ:"));
+        pnlCrudRow1.add(txtDiaChiKH);
+
+        pnlCrudRow2.add(new JLabel("Ngày mua:"));
+        pnlCrudRow2.add(txtNgayMua);
+        pnlCrudRow2.add(new JLabel("Số lượng:"));
+        pnlCrudRow2.add(txtSoLuongMua);
+        pnlCrudRow2.add(new JLabel("Ghi chú:"));
+        pnlCrudRow2.add(txtGhiChuMua);
+        pnlCrudRow2.add(btnThemKHMua);
+        pnlCrudRow2.add(btnSuaKHMua);
+        pnlCrudRow2.add(btnXoaKHMua);
+
+        pnlDetailCrud.add(pnlCrudRow1);
+        pnlDetailCrud.add(pnlCrudRow2);
 
         pnlDetailContainer.add(pnlDetailCrud, BorderLayout.SOUTH);
         pnlBody.add(pnlDetailContainer, BorderLayout.CENTER);
@@ -397,7 +440,9 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         btnVeSau = new JButton(">");
         btnVeCuoi = new JButton(">|");
 
-        for (JButton b : new JButton[]{btnVeDau, btnVeTruoc, btnVeSau, btnVeCuoi}) {
+        JButton[] navButtons = new JButton[]{btnVeDau, btnVeTruoc, btnVeSau, btnVeCuoi};
+        for (int i = 0; i < navButtons.length; i++) {
+            JButton b = navButtons[i];
             b.setFont(navFont);
             b.setMargin(navMargin);
             b.setPreferredSize(navDim);
@@ -422,7 +467,9 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         btnGhiFile = new JButton("Ghi file");
         btnKetThuc = new JButton("Kết thúc");
 
-        for (JButton b : new JButton[]{btnThemXe, btnXoaXe, btnBaoCao, btnGhiFile, btnKetThuc}) {
+        JButton[] actionButtons = new JButton[]{btnThemXe, btnXoaXe, btnBaoCao, btnGhiFile, btnKetThuc};
+        for (int i = 0; i < actionButtons.length; i++) {
+            JButton b = actionButtons[i];
             b.setFont(actionFont);
             b.setPreferredSize(actionDim);
             pnlActions.add(b);
@@ -475,80 +522,223 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     /**
-     * Câu 2b: Gắn sự kiện kiểm tra bàn phím, thoát control (FocusAdapter) và sự kiện các nút lệnh.
+     * Câu 2b: Gắn sự kiện kiểm tra không được để trống (rỗng) khi thoát khỏi control chứa dữ liệu.
+     */
+    private void ganSuKienKiemTraKhongRongKhiThoat(final JTextField field, final String tenO) {
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (isProgrammaticUpdate || e.isTemporary() || !isShowing()) {
+                    return;
+                }
+                if (field.getText().trim().isEmpty()) {
+                    field.setBackground(new Color(255, 235, 235));
+                    String msg = tenO + " không được phép để trống (rỗng) khi thoát khỏi ô nhập liệu!";
+                    lastAlertMessage = msg;
+                    if (!isTestMode && !isShowingFocusAlert) {
+                        isShowingFocusAlert = true;
+                        try {
+                            JOptionPane.showMessageDialog(
+                                    QuanLyMuaBanXeGUI.this,
+                                    msg,
+                                    "Cảnh báo để trống dữ liệu",
+                                    JOptionPane.WARNING_MESSAGE
+                            );
+                        } finally {
+                            isShowingFocusAlert = false;
+                        }
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                field.requestFocusInWindow();
+                            }
+                        });
+                    }
+                } else {
+                    field.setBackground(Color.WHITE);
+                }
+            }
+        });
+    }
+
+    /**
+     * Câu 2b & 2g: Gắn sự kiện kiểm tra bàn phím, thoát control (FocusAdapter),
+     * sửa trực tiếp trên JTable (TableModelListener) và sự kiện các nút lệnh.
      */
     private void khoiTaoSuKien() {
-        // Khi thoát khỏi các ô văn bản (focusLost): đánh dấu nền hồng nhạt nếu để trống
-        JTextField[] requiredFields = new JTextField[]{txtMaXe, txtTenXe, txtDungTich, txtDonGia};
-        for (final JTextField f : requiredFields) {
-            f.addFocusListener(new FocusAdapter() {
-                @Override
-                public void focusLost(FocusEvent e) {
-                    if (f.getText().trim().isEmpty()) {
-                        f.setBackground(new Color(255, 235, 235));
-                    } else {
-                        f.setBackground(Color.WHITE);
-                    }
-                }
-            });
-        }
+        ganSuKienKiemTraKhongRongKhiThoat(txtMaXe, "Mã xe");
+        ganSuKienKiemTraKhongRongKhiThoat(txtTenXe, "Tên xe");
+        ganSuKienKiemTraKhongRongKhiThoat(txtDungTich, "Dung tích");
+        ganSuKienKiemTraKhongRongKhiThoat(txtDonGia, "Đơn giá");
+        ganSuKienKiemTraKhongRongKhiThoat(txtTenKH, "Tên khách hàng");
+        ganSuKienKiemTraKhongRongKhiThoat(txtCMND, "Số CMND");
+        ganSuKienKiemTraKhongRongKhiThoat(txtNgayMua, "Ngày mua");
+        ganSuKienKiemTraKhongRongKhiThoat(txtSoLuongMua, "Số lượng mua");
 
-        // Chọn dòng trên bảng Khung chi tiết -> đưa thông tin lên thanh cập nhật KH mua
-        tblChiTiet.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                dongBoDongChonChiTietLenThanhKH();
+        // Nút Làm trống ô Xe để chuẩn bị nhập Xe mới
+        btnNhapMoiXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!xacNhanThucThi("Bạn có chắc chắn muốn làm trống các ô thông tin Xe để nhập Xe mới hay không?")) {
+                    return;
+                }
+                isProgrammaticUpdate = true;
+                try {
+                    txtMaXe.setText("");
+                    txtMaXe.setBackground(Color.WHITE);
+                    txtTenXe.setText("");
+                    txtTenXe.setBackground(Color.WHITE);
+                    txtDungTich.setText("");
+                    txtDungTich.setBackground(Color.WHITE);
+                    txtDonGia.setText("");
+                    txtDonGia.setBackground(Color.WHITE);
+                } finally {
+                    isProgrammaticUpdate = false;
+                }
+                txtMaXe.requestFocusInWindow();
             }
         });
 
-        // Chọn Mã KH trên combobox -> tự động điền Tên KH, CMND, Giới tính
-        cboMaKH.addActionListener(e -> {
-            Object sel = cboMaKH.getSelectedItem();
-            if (sel != null) {
-                String ma = sel.toString().trim();
-                for (KhachHang kh : dsKhachHang) {
-                    if (kh.getMaKH().equalsIgnoreCase(ma)) {
-                        txtTenKH.setText(kh.getTenKH());
-                        txtCMND.setText(kh.getCmnd());
-                        cboGioiTinh.setSelectedItem(kh.getGioiTinh());
-                        break;
+        // Chọn dòng trên bảng Khung chi tiết -> đưa thông tin lên thanh cập nhật KH mua
+        tblChiTiet.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting() && !isUpdatingTable) {
+                    dongBoDongChonChiTietLenThanhKH();
+                }
+            }
+        });
+
+        // Sự kiện sửa trực tiếp trên các ô của JTable (cột 1..6) -> Lưu xuống CSDL và tính lại Thành tiền + Thống kê
+        detailTableModel.addTableModelListener(new TableModelListener() {
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                if (isUpdatingTable || e.getType() != TableModelEvent.UPDATE) {
+                    return;
+                }
+                int row = e.getFirstRow();
+                int col = e.getColumn();
+                if (row < 0 || row >= dsChiTietHienTai.size() || col < 1 || col > 6) {
+                    return;
+                }
+                xuLySuaTrucTiepTrenBangChiTiet(row, col);
+            }
+        });
+
+        // Chọn Mã KH trên combobox -> tự động điền Tên KH, CMND, Giới tính, Địa chỉ
+        cboMaKH.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isProgrammaticUpdate) {
+                    return;
+                }
+                Object sel = cboMaKH.getSelectedItem();
+                if (sel != null) {
+                    String ma = sel.toString().trim();
+                    for (int i = 0; i < dsKhachHang.size(); i++) {
+                        KhachHang kh = dsKhachHang.get(i);
+                        if (kh.getMaKH().equalsIgnoreCase(ma)) {
+                            isProgrammaticUpdate = true;
+                            try {
+                                txtTenKH.setText(kh.getTenKH());
+                                txtCMND.setText(kh.getCmnd());
+                                cboGioiTinh.setSelectedItem(kh.getGioiTinh());
+                                txtDiaChiKH.setText(kh.getDiaChi());
+                            } finally {
+                                isProgrammaticUpdate = false;
+                            }
+                            break;
+                        }
                     }
                 }
             }
         });
 
         // Điều hướng Xe (Câu 2d): Về đầu, Về trước, Về sau, Về cuối
-        btnVeDau.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe đầu tiên hay không?")) {
-                diChuyenDenXe(0);
+        btnVeDau.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe đầu tiên hay không?")) {
+                    diChuyenDenXe(0);
+                }
             }
         });
-        btnVeTruoc.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe phía trước hay không?")) {
-                diChuyenDenXe(currentIndex - 1);
+        btnVeTruoc.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe phía trước hay không?")) {
+                    diChuyenDenXe(currentIndex - 1);
+                }
             }
         });
-        btnVeSau.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe kế tiếp hay không?")) {
-                diChuyenDenXe(currentIndex + 1);
+        btnVeSau.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe kế tiếp hay không?")) {
+                    diChuyenDenXe(currentIndex + 1);
+                }
             }
         });
-        btnVeCuoi.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe cuối cùng hay không?")) {
-                diChuyenDenXe(dsXe.size() - 1);
+        btnVeCuoi.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe cuối cùng hay không?")) {
+                    diChuyenDenXe(dsXe.size() - 1);
+                }
             }
         });
 
         // Các nút chức năng chính (Câu 2e, 2f, 2h, 2i)
-        btnThemXe.addActionListener(e -> xuLyThemXe());
-        btnXoaXe.addActionListener(e -> xuLyXoaXe());
-        btnBaoCao.addActionListener(e -> xuLyMoBaoCao());
-        btnGhiFile.addActionListener(e -> xuLyGhiFile());
-        btnKetThuc.addActionListener(e -> xuLyKetThuc());
+        btnThemXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyThemXe();
+            }
+        });
+        btnXoaXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyXoaXe();
+            }
+        });
+        btnBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyMoBaoCao();
+            }
+        });
+        btnGhiFile.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyGhiFile();
+            }
+        });
+        btnKetThuc.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyKetThuc();
+            }
+        });
 
         // Các nút Thêm / Sửa / Xóa Khách hàng mua Xe trên Khung hiển thị chi tiết (Câu 2g)
-        btnThemKHMua.addActionListener(e -> xuLyThemKhachHangMuaXe());
-        btnSuaKHMua.addActionListener(e -> xuLySuaKhachHangMuaXe());
-        btnXoaKHMua.addActionListener(e -> xuLyXoaKhachHangMuaXe());
+        btnThemKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyThemKhachHangMuaXe();
+            }
+        });
+        btnSuaKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLySuaKhachHangMuaXe();
+            }
+        });
+        btnXoaKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyXoaKhachHangMuaXe();
+            }
+        });
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -556,6 +746,77 @@ public class QuanLyMuaBanXeGUI extends JFrame {
                 xuLyKetThuc();
             }
         });
+    }
+
+    /**
+     * Xử lý khi người dùng sửa trực tiếp một ô (cột 1..6) trên bảng Khung hiển thị dữ liệu chi tiết:
+     * Tự động kiểm tra tính hợp lệ, cập nhật vào CSDL, tính lại Thành tiền và cập nhật 2 ô Thống kê.
+     */
+    private void xuLySuaTrucTiepTrenBangChiTiet(int row, int col) {
+        if (!repository.kiemTraKetNoi()) {
+            kiemTraKetNoiHoacTaoDongDuLieuAo();
+            return;
+        }
+        ChiTietMuaXe banGoc = dsChiTietHienTai.get(row);
+        String newMaKH = layChuoiO(row, 1);
+        String newTenKH = layChuoiO(row, 2);
+        String newCmnd = layChuoiO(row, 3);
+        String newGioiTinh = layChuoiO(row, 4);
+        String newNgayMua = layChuoiO(row, 5);
+        String newSoLuongStr = layChuoiO(row, 6);
+        String newDiaChi = banGoc.getDiaChi();
+
+        // Nếu người dùng đổi Mã KH sang một khách hàng đã có sẵn thì đồng bộ thông tin khách hàng đó
+        if (col == 1) {
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                KhachHang kh = dsKhachHang.get(i);
+                if (kh.getMaKH().equalsIgnoreCase(newMaKH)) {
+                    newTenKH = kh.getTenKH();
+                    newCmnd = kh.getCmnd();
+                    newGioiTinh = kh.getGioiTinh();
+                    newDiaChi = kh.getDiaChi();
+                    break;
+                }
+            }
+        }
+
+        try {
+            if (newMaKH.isEmpty() || newTenKH.isEmpty() || newCmnd.isEmpty()
+                    || newGioiTinh.isEmpty() || newNgayMua.isEmpty() || newSoLuongStr.isEmpty()) {
+                throw new IllegalArgumentException("Ô dữ liệu trên Khung chi tiết không được để trống!");
+            }
+            if (!newCmnd.matches("[0-9]{8,15}")) {
+                throw new IllegalArgumentException("Số CMND phải gồm từ 8 đến 15 chữ số!");
+            }
+            MuaBanXeRepository.chuyenSangIsoDate(newNgayMua);
+            int newSoLuong;
+            try {
+                newSoLuong = Integer.parseInt(newSoLuongStr);
+                if (newSoLuong <= 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Số lượng mua trên bảng phải là số nguyên dương!");
+            }
+
+            ChiTietMuaXe capNhat = new ChiTietMuaXe(
+                    newMaKH, newTenKH, newCmnd, newGioiTinh, newDiaChi,
+                    banGoc.getMaXe(), newNgayMua, newSoLuong, banGoc.getDonGiaXe(), banGoc.getGhiChu()
+            );
+            repository.suaChiTietMuaXe(banGoc.getMaKH(), banGoc.getMaXe(), banGoc.getNgayMua(), capNhat);
+            dsKhachHang = repository.layDanhSachKhachHang();
+            napDanhSachMaKHVaoCombo();
+            napBangChiTietVaThongKe(banGoc.getMaXe());
+            thongBao("Đã tự động lưu thay đổi trên bảng và cập nhật Thành tiền / Thống kê!");
+        } catch (Exception ex) {
+            thongBao(ex.getMessage());
+            napBangChiTietVaThongKe(banGoc.getMaXe());
+        }
+    }
+
+    private String layChuoiO(int row, int col) {
+        Object val = detailTableModel.getValueAt(row, col);
+        return val == null ? "" : val.toString().trim();
     }
 
     /**
@@ -568,12 +829,22 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         if (!repository.kiemTraKetNoi()) {
             duaDuLieuTrongRongLenCuaSo();
             thongBao("Kết nối CSDL không được! Đã đưa dữ liệu trống rỗng lên màn hình cửa sổ.");
-            SwingUtilities.invokeLater(() -> txtMaXe.requestFocusInWindow());
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    txtMaXe.requestFocusInWindow();
+                }
+            });
             return;
         }
         taiDuLieuTuCSDLVaHienThi(0);
         // Câu 2b: Khởi tạo cửa sổ chính, con trỏ văn bản đặt vào ô Mã xe
-        SwingUtilities.invokeLater(() -> txtMaXe.requestFocusInWindow());
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                txtMaXe.requestFocusInWindow();
+            }
+        });
     }
 
     /**
@@ -585,14 +856,25 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         dsChiTietHienTai.clear();
         currentIndex = -1;
 
-        txtMaXe.setText("");
-        txtTenXe.setText("");
-        txtDungTich.setText("");
-        txtDonGia.setText("");
-        detailTableModel.setRowCount(0);
-        txtTongSoKH.setText("0");
-        txtTongThanhTien.setText("0 VNĐ");
-        txtChiSo.setText("0/0");
+        isProgrammaticUpdate = true;
+        isUpdatingTable = true;
+        try {
+            txtMaXe.setText("");
+            txtMaXe.setBackground(Color.WHITE);
+            txtTenXe.setText("");
+            txtTenXe.setBackground(Color.WHITE);
+            txtDungTich.setText("");
+            txtDungTich.setBackground(Color.WHITE);
+            txtDonGia.setText("");
+            txtDonGia.setBackground(Color.WHITE);
+            detailTableModel.setRowCount(0);
+            txtTongSoKH.setText("0");
+            txtTongThanhTien.setText("0 VNĐ");
+            txtChiSo.setText("0/0");
+        } finally {
+            isUpdatingTable = false;
+            isProgrammaticUpdate = false;
+        }
         capNhatTrangThaiNutDieuHuong();
     }
 
@@ -603,10 +885,14 @@ public class QuanLyMuaBanXeGUI extends JFrame {
      * các control chứa dữ liệu thích hợp trên Cửa sổ.
      */
     public boolean kiemTraKetNoiHoacTaoDongDuLieuAo() {
+        return kiemTraKetNoiHoacTaoDongDuLieuAo(null);
+    }
+
+    public boolean kiemTraKetNoiHoacTaoDongDuLieuAo(Xe customXe) {
         if (repository.kiemTraKetNoi()) {
             return true;
         }
-        repository.khoiTaoDongDuLieuAo();
+        repository.khoiTaoDongDuLieuAo(customXe);
         try {
             dsXe = repository.layDanhSachXe();
             dsKhachHang = repository.layDanhSachKhachHang();
@@ -637,11 +923,17 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     private void napDanhSachMaKHVaoCombo() {
-        cboMaKH.removeAllItems();
-        cboTableMaKH.removeAllItems();
-        for (KhachHang kh : dsKhachHang) {
-            cboMaKH.addItem(kh.getMaKH());
-            cboTableMaKH.addItem(kh.getMaKH());
+        isProgrammaticUpdate = true;
+        try {
+            cboMaKH.removeAllItems();
+            cboTableMaKH.removeAllItems();
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                KhachHang kh = dsKhachHang.get(i);
+                cboMaKH.addItem(kh.getMaKH());
+                cboTableMaKH.addItem(kh.getMaKH());
+            }
+        } finally {
+            isProgrammaticUpdate = false;
         }
     }
 
@@ -655,16 +947,21 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         }
         currentIndex = index;
         Xe xe = dsXe.get(currentIndex);
-        txtMaXe.setText(xe.getMaXe());
-        txtMaXe.setBackground(Color.WHITE);
-        txtTenXe.setText(xe.getTenXe());
-        txtTenXe.setBackground(Color.WHITE);
-        txtDungTich.setText(String.valueOf(xe.getDungTich()));
-        txtDungTich.setBackground(Color.WHITE);
-        txtDonGia.setText(Xe.dinhDangSo(xe.getDonGia()));
-        txtDonGia.setBackground(Color.WHITE);
+        isProgrammaticUpdate = true;
+        try {
+            txtMaXe.setText(xe.getMaXe());
+            txtMaXe.setBackground(Color.WHITE);
+            txtTenXe.setText(xe.getTenXe());
+            txtTenXe.setBackground(Color.WHITE);
+            txtDungTich.setText(String.valueOf(xe.getDungTich()));
+            txtDungTich.setBackground(Color.WHITE);
+            txtDonGia.setText(Xe.dinhDangSo(xe.getDonGia()));
+            txtDonGia.setBackground(Color.WHITE);
+            txtChiSo.setText((currentIndex + 1) + "/" + dsXe.size());
+        } finally {
+            isProgrammaticUpdate = false;
+        }
 
-        txtChiSo.setText((currentIndex + 1) + "/" + dsXe.size());
         capNhatTrangThaiNutDieuHuong();
         napBangChiTietVaThongKe(xe.getMaXe());
     }
@@ -674,37 +971,42 @@ public class QuanLyMuaBanXeGUI extends JFrame {
      * và tính lại 2 control Thống kê (Tổng số khách hàng = n, Tổng thành tiền).
      */
     public void napBangChiTietVaThongKe(String maXe) {
-        detailTableModel.setRowCount(0);
-        dsChiTietHienTai.clear();
+        isUpdatingTable = true;
         try {
-            dsChiTietHienTai = repository.layChiTietMuaTheoXe(maXe);
-        } catch (SQLException ex) {
-            dsChiTietHienTai = new ArrayList<ChiTietMuaXe>();
-        }
+            detailTableModel.setRowCount(0);
+            dsChiTietHienTai.clear();
+            try {
+                dsChiTietHienTai = repository.layChiTietMuaTheoXe(maXe);
+            } catch (SQLException ex) {
+                dsChiTietHienTai = new ArrayList<ChiTietMuaXe>();
+            }
 
-        long tongThanhTien = 0L;
-        for (int i = 0; i < dsChiTietHienTai.size(); i++) {
-            ChiTietMuaXe ct = dsChiTietHienTai.get(i);
-            long thanhTien = ct.getThanhTien();
-            tongThanhTien += thanhTien;
-            detailTableModel.addRow(new Object[]{
-                    Integer.valueOf(i + 1),
-                    ct.getMaKH(),
-                    ct.getTenKH(),
-                    ct.getCmnd(),
-                    ct.getGioiTinh(),
-                    ct.getNgayMua(),
-                    Integer.valueOf(ct.getSoLuong()),
-                    Xe.dinhDangSo(thanhTien)
-            });
-        }
+            long tongThanhTien = 0L;
+            for (int i = 0; i < dsChiTietHienTai.size(); i++) {
+                ChiTietMuaXe ct = dsChiTietHienTai.get(i);
+                long thanhTien = ct.getThanhTien();
+                tongThanhTien += thanhTien;
+                detailTableModel.addRow(new Object[]{
+                        Integer.valueOf(i + 1),
+                        ct.getMaKH(),
+                        ct.getTenKH(),
+                        ct.getCmnd(),
+                        ct.getGioiTinh(),
+                        ct.getNgayMua(),
+                        Integer.valueOf(ct.getSoLuong()),
+                        Xe.dinhDangSo(thanhTien)
+                });
+            }
 
-        txtTongSoKH.setText(String.valueOf(dsChiTietHienTai.size()));
-        txtTongThanhTien.setText(Xe.dinhDangSo(tongThanhTien) + " VNĐ");
+            txtTongSoKH.setText(String.valueOf(dsChiTietHienTai.size()));
+            txtTongThanhTien.setText(Xe.dinhDangSo(tongThanhTien) + " VNĐ");
 
-        if (!dsChiTietHienTai.isEmpty()) {
-            tblChiTiet.setRowSelectionInterval(0, 0);
-            dongBoDongChonChiTietLenThanhKH();
+            if (!dsChiTietHienTai.isEmpty()) {
+                tblChiTiet.setRowSelectionInterval(0, 0);
+                dongBoDongChonChiTietLenThanhKH();
+            }
+        } finally {
+            isUpdatingTable = false;
         }
     }
 
@@ -712,13 +1014,23 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         int row = tblChiTiet.getSelectedRow();
         if (row >= 0 && row < dsChiTietHienTai.size()) {
             ChiTietMuaXe ct = dsChiTietHienTai.get(row);
-            cboMaKH.setSelectedItem(ct.getMaKH());
-            txtTenKH.setText(ct.getTenKH());
-            txtCMND.setText(ct.getCmnd());
-            cboGioiTinh.setSelectedItem(ct.getGioiTinh());
-            txtNgayMua.setText(ct.getNgayMua());
-            txtSoLuongMua.setText(String.valueOf(ct.getSoLuong()));
-            txtGhiChuMua.setText(ct.getGhiChu());
+            isProgrammaticUpdate = true;
+            try {
+                cboMaKH.setSelectedItem(ct.getMaKH());
+                txtTenKH.setText(ct.getTenKH());
+                txtTenKH.setBackground(Color.WHITE);
+                txtCMND.setText(ct.getCmnd());
+                txtCMND.setBackground(Color.WHITE);
+                cboGioiTinh.setSelectedItem(ct.getGioiTinh());
+                txtDiaChiKH.setText(ct.getDiaChi());
+                txtNgayMua.setText(ct.getNgayMua());
+                txtNgayMua.setBackground(Color.WHITE);
+                txtSoLuongMua.setText(String.valueOf(ct.getSoLuong()));
+                txtSoLuongMua.setBackground(Color.WHITE);
+                txtGhiChuMua.setText(ct.getGhiChu());
+            } finally {
+                isProgrammaticUpdate = false;
+            }
         }
     }
 
@@ -787,18 +1099,24 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     /**
      * Câu 2e: Btn Thêm xe:
      * - Hỏi xác nhận Yes/No.
+     * - Kiểm tra kết nối CSDL (nếu mất kết nối thì tạo dòng dữ liệu ảo theo Ghi chú 3).
      * - Kiểm tra thông tin ràng buộc không rỗng.
      * - Kiểm tra Mã xe đã tồn tại trong table Xe chưa; nếu tồn tại thì thông báo lỗi:
      *   "Mã xe đã tồn tại, vui lòng nhập lại!"
-     * - Ngược lại lưu thông tin Xe (và dòng khách hàng chọn mua hiện thời nếu hợp lệ) vào Database Server,
-     *   sau đó cập nhật các control Thống kê và Khung hiển thị dữ liệu chi tiết.
+     * - Ngược lại lưu thông tin Xe vào Database Server, sau đó cập nhật các control Thống kê
+     *   và Khung hiển thị dữ liệu chi tiết.
      */
     public void xuLyThemXe() {
         if (!xacNhanThucThi("Bạn có chắc chắn muốn thực thi chức năng Thêm Xe hay không?")) {
             return;
         }
         if (!repository.kiemTraKetNoi()) {
-            kiemTraKetNoiHoacTaoDongDuLieuAo();
+            Xe customXe = null;
+            try {
+                customXe = kiemTraVaDocThongTinXeTuForm();
+            } catch (IllegalArgumentException ignored) {
+            }
+            kiemTraKetNoiHoacTaoDongDuLieuAo(customXe);
             return;
         }
         Xe xeMoi;
@@ -818,27 +1136,6 @@ public class QuanLyMuaBanXeGUI extends JFrame {
             }
             repository.themXe(xeMoi);
 
-            // Nếu thanh thông tin Khách hàng mua xe đang có dữ liệu hợp lệ thì lưu kèm giao dịch mua xe
-            String maKH = cboMaKH.getSelectedItem() == null ? "" : cboMaKH.getSelectedItem().toString().trim();
-            String tenKH = txtTenKH.getText().trim();
-            String cmnd = txtCMND.getText().trim();
-            String ngayMua = txtNgayMua.getText().trim();
-            String soLuongStr = txtSoLuongMua.getText().trim();
-            if (!maKH.isEmpty() && !tenKH.isEmpty() && !cmnd.isEmpty() && !ngayMua.isEmpty() && !soLuongStr.isEmpty()) {
-                try {
-                    int sl = Integer.parseInt(soLuongStr);
-                    if (sl > 0) {
-                        ChiTietMuaXe ct = new ChiTietMuaXe(
-                                maKH, tenKH, cmnd,
-                                cboGioiTinh.getSelectedItem() == null ? "Nam" : cboGioiTinh.getSelectedItem().toString(),
-                                "TP.HCM", xeMoi.getMaXe(), ngayMua, sl, xeMoi.getDonGia(), txtGhiChuMua.getText().trim()
-                        );
-                        repository.themChiTietMuaXe(ct);
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
             dsXe = repository.layDanhSachXe();
             int newIdx = dsXe.size() - 1;
             for (int i = 0; i < dsXe.size(); i++) {
@@ -856,19 +1153,23 @@ public class QuanLyMuaBanXeGUI extends JFrame {
 
     /**
      * Câu 2f: Btn Xóa Xe:
-     * - Hỏi xác nhận Yes/No.
+     * - Hỏi xác nhận Yes/No (nêu rõ xóa Xe kèm lịch sử mua của Xe đó).
      * - Xóa dòng dữ liệu hiện thời trên Cửa sổ (thông tin Xe) và cập nhật vào Database Server.
      * - Sau đó đưa dữ liệu của Xe kế tiếp lên Cửa sổ (cập nhật lại các control Thống kê).
      */
     public void xuLyXoaXe() {
-        if (!xacNhanThucThi("Bạn có chắc chắn muốn xóa Xe hiện thời khỏi Database Server hay không?")) {
+        String maXeHienTai = txtMaXe.getText().trim();
+        String msgXacNhan = maXeHienTai.isEmpty()
+                ? "Bạn có chắc chắn muốn xóa Xe hiện thời khỏi Database Server hay không?"
+                : "Bạn có chắc chắn muốn xóa Xe '" + maXeHienTai
+                  + "' (bao gồm lịch sử khách hàng mua xe này) khỏi Database Server hay không?";
+        if (!xacNhanThucThi(msgXacNhan)) {
             return;
         }
         if (!repository.kiemTraKetNoi()) {
             kiemTraKetNoiHoacTaoDongDuLieuAo();
             return;
         }
-        String maXeHienTai = txtMaXe.getText().trim();
         if (maXeHienTai.isEmpty() || dsXe.isEmpty()) {
             thongBao("Không có bản ghi Xe hiện thời để xóa!");
             return;
@@ -973,11 +1274,26 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         String tenKH = txtTenKH.getText().trim();
         String cmnd = txtCMND.getText().trim();
         String gioiTinh = cboGioiTinh.getSelectedItem() == null ? "Nam" : cboGioiTinh.getSelectedItem().toString().trim();
+        String diaChi = txtDiaChiKH.getText().trim();
         String ngayMua = txtNgayMua.getText().trim();
         String slStr = txtSoLuongMua.getText().trim();
 
         if (maKH.isEmpty() || tenKH.isEmpty() || cmnd.isEmpty() || ngayMua.isEmpty() || slStr.isEmpty()) {
             throw new IllegalArgumentException("Thông tin Khách hàng mua xe (Mã KH, Tên KH, CMND, Ngày mua, Số lượng) không được để trống!");
+        }
+        if (!cmnd.matches("[0-9]{8,15}")) {
+            throw new IllegalArgumentException("Số CMND phải gồm từ 8 đến 15 chữ số!");
+        }
+        if (diaChi.isEmpty()) {
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                if (dsKhachHang.get(i).getMaKH().equalsIgnoreCase(maKH)) {
+                    diaChi = dsKhachHang.get(i).getDiaChi();
+                    break;
+                }
+            }
+            if (diaChi.isEmpty()) {
+                diaChi = "TP.HCM";
+            }
         }
         MuaBanXeRepository.chuyenSangIsoDate(ngayMua); // Kiểm tra định dạng dd/MM/yyyy
         int soLuong;
@@ -989,7 +1305,7 @@ public class QuanLyMuaBanXeGUI extends JFrame {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Số lượng mua phải là số nguyên dương!");
         }
-        return new ChiTietMuaXe(maKH, tenKH, cmnd, gioiTinh, "TP.HCM",
+        return new ChiTietMuaXe(maKH, tenKH, cmnd, gioiTinh, diaChi,
                 xe.getMaXe(), ngayMua, soLuong, xe.getDonGia(), txtGhiChuMua.getText().trim());
     }
 
@@ -1030,7 +1346,9 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     public void luuChiTietRaFileTxt(File file) {
-        try (PrintWriter out = new PrintWriter(file, StandardCharsets.UTF_8.name())) {
+        PrintWriter out = null;
+        try {
+            out = new PrintWriter(file, StandardCharsets.UTF_8.name());
             out.println("==============================================================================================");
             out.println("                  TRUNG TÂM XE GẮN MÁY NVT - KHUNG HIỂN THỊ DỮ LIỆU CHI TIẾT                  ");
             out.println("==============================================================================================");
@@ -1045,22 +1363,27 @@ public class QuanLyMuaBanXeGUI extends JFrame {
             for (int i = 0; i < dsChiTietHienTai.size(); i++) {
                 ChiTietMuaXe ct = dsChiTietHienTai.get(i);
                 out.printf("%-5d | %-8s | %-22s | %-12s | %-9s | %-12s | %-8d | %-15s%n",
-                        i + 1,
+                        Integer.valueOf(i + 1),
                         ct.getMaKH(),
                         ct.getTenKH(),
                         ct.getCmnd(),
                         ct.getGioiTinh(),
                         ct.getNgayMua(),
-                        ct.getSoLuong(),
+                        Integer.valueOf(ct.getSoLuong()),
                         Xe.dinhDangSo(ct.getThanhTien()));
             }
             out.println("==============================================================================================");
             out.println("Tổng số khách hàng : " + txtTongSoKH.getText().trim());
             out.println("Tổng thành tiền    : " + txtTongThanhTien.getText().trim());
             out.println("==============================================================================================");
+            out.flush();
             thongBao("Đã ghi dữ liệu Khung chi tiết ra file thành công:\n" + file.getAbsolutePath());
         } catch (Exception ex) {
             thongBao("Lỗi khi ghi file txt: " + ex.getMessage());
+        } finally {
+            if (out != null) {
+                out.close();
+            }
         }
     }
 
@@ -1110,6 +1433,7 @@ public class QuanLyMuaBanXeGUI extends JFrame {
     public String getLastAlertMessage() { return lastAlertMessage; }
     public BaoCaoMuaXeDialog getLastReportDialog() { return lastReportDialog; }
     public List<Xe> getDsXe() { return dsXe; }
+    public List<KhachHang> getDsKhachHang() { return dsKhachHang; }
     public List<ChiTietMuaXe> getDsChiTietHienTai() { return dsChiTietHienTai; }
     public int getCurrentIndex() { return currentIndex; }
 
@@ -1118,6 +1442,11 @@ public class QuanLyMuaBanXeGUI extends JFrame {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {
         }
-        SwingUtilities.invokeLater(() -> new QuanLyMuaBanXeGUI().setVisible(true));
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new QuanLyMuaBanXeGUI().setVisible(true);
+            }
+        });
     }
 }

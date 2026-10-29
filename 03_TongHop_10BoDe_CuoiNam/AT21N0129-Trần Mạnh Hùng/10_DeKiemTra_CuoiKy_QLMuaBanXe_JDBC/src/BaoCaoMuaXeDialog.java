@@ -8,6 +8,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ public class BaoCaoMuaXeDialog extends JDialog {
     private DefaultTableModel reportTableModel;
     private JTable tblBaoCao;
     private List<Xe> danhSachXe = new ArrayList<Xe>();
+    private String lastErrorMessage = "";
 
     public BaoCaoMuaXeDialog(JFrame parent, MuaBanXeRepository repository, String initialMaXe, boolean autoConfirmMode) {
         super(parent, "Cửa sổ Báo cáo - Thống kê khách hàng đã mua xe", false);
@@ -95,7 +98,7 @@ public class BaoCaoMuaXeDialog extends JDialog {
         lblLocNgayMua.setFont(new Font("Tahoma", Font.BOLD, 12));
         txtNgayMua = new JTextField(12);
         txtNgayMua.setFont(new Font("Tahoma", Font.PLAIN, 12));
-        txtNgayMua.setToolTipText("Nhập ngày mua cụ thể (ví dụ 28/10/2011) hoặc để trống để xem tất cả ngày mua");
+        txtNgayMua.setToolTipText("Nhập ngày mua cụ thể theo định dạng dd/mm/yyyy (ví dụ 28/10/2012) hoặc để trống để xem tất cả ngày mua");
 
         btnThucHienBaoCao = new JButton("Thực hiện báo cáo");
         btnThucHienBaoCao.setFont(new Font("Tahoma", Font.BOLD, 12));
@@ -264,15 +267,21 @@ public class BaoCaoMuaXeDialog extends JDialog {
         add(pnlCrystalReport, BorderLayout.CENTER);
 
         // Sự kiện các nút trên cửa sổ Báo cáo (đều hỏi Yes/No theo Ghi chú 1)
-        btnThucHienBaoCao.addActionListener(e -> {
-            if (xacNhan("Bạn có chắc chắn muốn thực hiện phát sinh báo cáo theo tiêu chí đã chọn hay không?")) {
-                thucHienPhatSinhBaoCao(true);
+        btnThucHienBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhan("Bạn có chắc chắn muốn thực hiện phát sinh báo cáo theo tiêu chí đã chọn hay không?")) {
+                    thucHienPhatSinhBaoCao(true);
+                }
             }
         });
 
-        btnDongBaoCao.addActionListener(e -> {
-            if (xacNhan("Bạn có chắc chắn muốn đóng Cửa sổ Báo cáo hay không?")) {
-                dispose();
+        btnDongBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhan("Bạn có chắc chắn muốn đóng Cửa sổ Báo cáo hay không?")) {
+                    dispose();
+                }
             }
         });
     }
@@ -311,8 +320,8 @@ public class BaoCaoMuaXeDialog extends JDialog {
             } catch (SQLException ignored) {
             }
         }
-        for (Xe x : danhSachXe) {
-            cboMaXe.addItem(x.getMaXe());
+        for (int i = 0; i < danhSachXe.size(); i++) {
+            cboMaXe.addItem(danhSachXe.get(i).getMaXe());
         }
         cboMaXe.addItem("-- Tất cả --");
         if (initialMaXe != null && !initialMaXe.trim().isEmpty()) {
@@ -323,6 +332,7 @@ public class BaoCaoMuaXeDialog extends JDialog {
     }
 
     public void thucHienPhatSinhBaoCao(boolean showCheckConnectionAlert) {
+        lastErrorMessage = "";
         if (!repository.kiemTraKetNoi()) {
             if (showCheckConnectionAlert && !autoConfirmMode) {
                 JOptionPane.showMessageDialog(this,
@@ -335,7 +345,8 @@ public class BaoCaoMuaXeDialog extends JDialog {
         String ngayMuaFilter = txtNgayMua.getText().trim();
 
         Xe xeInfo = null;
-        for (Xe x : danhSachXe) {
+        for (int i = 0; i < danhSachXe.size(); i++) {
+            Xe x = danhSachXe.get(i);
             if (x.getMaXe().equalsIgnoreCase(selectedMaXe)) {
                 xeInfo = x;
                 break;
@@ -368,7 +379,12 @@ public class BaoCaoMuaXeDialog extends JDialog {
             }
             lblValSoLuongKH.setText("  " + rows.size() + "  ");
         } catch (SQLException ex) {
+            lastErrorMessage = ex.getMessage();
             lblValSoLuongKH.setText("  0  ");
+            if (showCheckConnectionAlert && !autoConfirmMode) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(),
+                        "Lỗi tiêu chí lọc báo cáo", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }
 
@@ -380,4 +396,5 @@ public class BaoCaoMuaXeDialog extends JDialog {
     public JLabel getLblValMaXe() { return lblValMaXe; }
     public JLabel getLblValTenXe() { return lblValTenXe; }
     public JLabel getLblValSoLuongKH() { return lblValSoLuongKH; }
+    public String getLastErrorMessage() { return lastErrorMessage; }
 }

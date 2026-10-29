@@ -1,7 +1,21 @@
--- =================================================================================
+﻿-- =================================================================================
 -- KỊCH BẢN KHỞI TẠO CƠ SỞ DỮ LIỆU SQL SERVER: QLMuaBanXe
 -- ĐỀ KIỂM TRA CUỐI KỲ - ĐỀ 01 (MÔN: LẬP TRÌNH JAVA - THỜI GIAN: 90 PHÚT)
 -- Sinh viên thực hiện : Trần Mạnh Hùng - MSSV: AT21N0129
+-- =================================================================================
+-- THUYẾT MINH THIẾT KẾ CSDL THEO ĐỀ THI:
+-- 1. Kiểu dữ liệu MaKH, MaXe, CMND:
+--    Đề cho phép: "Hoặc sinh viên tùy ý xây dựng lại các bảng dữ liệu để lưu trữ
+--    hợp lý dữ liệu...". Trên Hình cửa sổ chính (Trang 1) và Hình Báo cáo (Trang 3),
+--    mã thực tế có dạng chữ-số ('XE01', 'KH01', 'KH001') và CMND có thể bắt đầu bằng
+--    chữ số 0 ('079199001'). Do đó sử dụng VARCHAR(20) cho MaKH, MaXe và dùng
+--    VARCHAR(20) kèm CHECK chỉ nhận chữ số cho CMND là hợp lý nhất.
+-- 2. Khóa chính bảng Mua_Xe và cột GhiChu:
+--    Khóa chính (MaKH, MaXe, NgayMua) cho phép khách hàng mua cùng mã xe ở các ngày
+--    khác nhau; cột GhiChu NVARCHAR(100) phục vụ hiển thị cột 'Ghi chú' trên Báo cáo.
+-- 3. Công thức Thành tiền trên giao diện:
+--    Thành tiền = Đơn giá * Số lượng * 1.10 (gồm 10% thuế VAT & phí trước bạ), khớp
+--    chính xác với hình đề: 21,500,000 * 1 * 1.10 = 23,650,000 VNĐ.
 -- =================================================================================
 
 USE master;
@@ -69,7 +83,9 @@ CREATE TABLE dbo.Mua_Xe (
 GO
 
 -- =================================================================================
--- NẠP DỮ LIỆU MẪU CHUẨN THEO HÌNH CHỤP TRONG ĐỀ THI (4 XE -> CHỈ SỐ 1/4)
+-- NẠP DỮ LIỆU MẪU CHUẨN THEO HÌNH CHỤP TRONG ĐỀ THI:
+-- - XE01 (Suzuki X-Bike, 125cc, 21,500,000) khớp Cửa sổ chính Trang 1 (Chỉ số 1/4)
+-- - KH001 (Towner, 110cc, 18,500,000) khớp Cửa sổ Báo cáo Trang 3 (2 dòng KH mua)
 -- =================================================================================
 
 INSERT INTO dbo.Khach_Hang (MaKH, TenKH, CMND, GioiTinh, DiaChi) VALUES

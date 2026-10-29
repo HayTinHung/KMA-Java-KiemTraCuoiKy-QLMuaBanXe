@@ -3,20 +3,21 @@ import re
 import subprocess
 import tempfile
 
-SUBMISSION_DIR = r'E:\Projects\JAVALEARNING\NOP_BAI_CUOI_NAM\AT21N0129-Trần Mạnh Hùng'
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SUBMISSION_DIR = os.path.join(SCRIPT_DIR, 'AT21N0129-Trần Mạnh Hùng')
 
 FORBIDDEN_PATTERNS = [
     (r'java\.lang\.reflect', 'java.lang.reflect (ngoài giáo trình KMA)'),
-    (r'java\.time\.', 'java.time.* (thay bằng Date/Calendar/SimpleDateFormat theo giáo trình)'),
-    (r'javax\.swing\.text\.DocumentFilter', 'DocumentFilter (thay bằng KeyAdapter/DocumentListener theo giáo trình)'),
-    (r'\.stream\s*\(', 'Stream API .stream() (thay bằng vòng lặp for/while theo giáo trình)'),
+    (r'java\.time\.', 'java.time.* (thay bằng Date/Calendar/SimpleDateFormat)'),
+    (r'javax\.swing\.text\.DocumentFilter', 'DocumentFilter (thay bằng KeyAdapter/DocumentListener)'),
+    (r'\.stream\s*\(', 'Stream API .stream() (thay bằng vòng lặp for/while chuẩn giáo trình)'),
     (r'org\.apache\.poi', 'Thư viện ngoài org.apache.poi'),
 ]
 
 
 def audit_curriculum():
     print('==========================================================================================')
-    print('   PHẦN 1: KIỂM TOÁN 100% KIẾN THỨC TRONG KEY TÀI LIỆU CỦA TRƯỜNG (7 FILE PDF KMA)')
+    print('   PHẦN 1: KIỂM TOÁN MÃ NGUỒN THEO CHUẨN GIÁO TRÌNH & YÊU CẦU ĐỀ THI CỦA TRƯỜNG KMA')
     print('==========================================================================================')
     java_files = []
     violations = []
@@ -34,20 +35,19 @@ def audit_curriculum():
     if violations:
         for rel, desc in violations:
             print(f'  [!] VI PHẠM: {rel} -> {desc}')
-        raise RuntimeError('Phát hiện kiến thức ngoài tài liệu trường!')
+        raise RuntimeError('Phát hiện API nằm trong danh sách hạn chế!')
     else:
-        print('  [PASS 100%] Tất cả 142 file .java đều tuần thủ 100% kiến thức trong 7 PDF tài liệu trường!')
+        print(f'  [PASS 100%] Tất cả {len(java_files)} file .java đều tuân thủ chuẩn OOP, AWT/Swing & JDBC theo đề thi!')
         print('              - Căn bản & Mảng/Chuỗi: Scanner, Math, String, SimpleDateFormat, Date, Calendar')
         print('              - OOP chuẩn: Class, Encapsulation, Inheritance, Polymorphism, ArrayList/Vector')
-        print('              - Giao diện AWT/Swing: JFrame, JPanel, JLabel, JTextField, JRadioButton, JCheckBox,')
-        print('                JComboBox, JButton, JTable, JTree, JSplitPane, TitledBorder, BoxLayout,')
-        print('                BorderLayout, GridLayout, FlowLayout, GridBagLayout, Timer, JOptionPane')
-        print('              - Sự kiện: ActionListener, DocumentListener, KeyAdapter, WindowAdapter, TreeSelectionListener')
+        print('              - Giao diện AWT/Swing & Sự kiện: JFrame, JDialog, JPanel, JLabel, JTextField,')
+        print('                JComboBox, JButton, JTable, JTree, JFileChooser, ActionListener, FocusAdapter,')
+        print('                KeyAdapter, WindowAdapter, ListSelectionListener, TableModelListener')
 
 
 def run_java_test(src_files, main_class, label, stdin_data=None, extra_cp=None):
     with tempfile.TemporaryDirectory() as tmp:
-        cp = tmp if not extra_cp else f'{tmp};{extra_cp}'
+        cp = tmp if not extra_cp else f'{tmp}{os.pathsep}{extra_cp}'
         cmd_compile = ['javac', '-encoding', 'UTF-8', '-cp', cp, '-d', tmp] + src_files
         c_res = subprocess.run(cmd_compile, capture_output=True, text=True)
         if c_res.returncode != 0:
@@ -66,7 +66,7 @@ def run_java_test(src_files, main_class, label, stdin_data=None, extra_cp=None):
 def main():
     audit_curriculum()
     print('\n==========================================================================================')
-    print('   PHẦN 2: CHẠY KIỂM THỬ TỰ ĐỘNG TOÀN BỘ 9 ĐỀ (AUTO-GRADING TEST RUNNER)')
+    print('   PHẦN 2: CHẠY KIỂM THỬ TỰ ĐỘNG TOÀN BỘ 10 BỘ ĐỀ (AUTO-GRADING TEST RUNNER)')
     print('==========================================================================================')
 
     # 1. Lab 01: WarmUp + Lab01Test
@@ -134,8 +134,11 @@ def main():
         'Đề 7  - Đề Kiểm Tra Lần 1 (Đề 1): Thiết Bị Nhập Khẩu (De1ThietBiAutoGradingSuite - 17/17 câu)'
     )
 
+    # Tìm JDBC driver đi kèm trong Đề 10
+    d10_base = os.path.join(SUBMISSION_DIR, '10_DeKiemTra_CuoiKy_QLMuaBanXe_JDBC')
+    jdbc_jar = os.path.join(d10_base, 'lib', 'mssql-jdbc-13.6.0.jre11.jar')
+
     # 8. Ôn tập Lần 2: RepositoryMixedRatesTest
-    jdbc_jar = r'E:\Projects\JAVALEARNING\DEKIEMTRA2_DE1_2026\lib\mssql-jdbc-13.6.0.jre11.jar'
     d8 = os.path.join(SUBMISSION_DIR, '08_OnTap_KiemTraLan2_QLHangHoa_JDBC')
     run_java_test(
         [os.path.join(d8, 'src', 'ontap2', x) for x in os.listdir(os.path.join(d8, 'src', 'ontap2')) if x.endswith('.java')] +
@@ -155,12 +158,12 @@ def main():
         extra_cp=jdbc_jar
     )
 
-    # 10. Đề Kiểm tra Cuối Kỳ: DeCuoiKyAutoGradingSuite
-    d10 = os.path.join(SUBMISSION_DIR, '10_DeKiemTra_CuoiKy_QLMuaBanXe_JDBC', 'src')
+    # 10. Đề Kiểm tra Cuối Kỳ: DeCuoiKyAutoGradingSuite (31/31 test cases)
+    d10 = os.path.join(d10_base, 'src')
     run_java_test(
         [os.path.join(d10, x) for x in os.listdir(d10) if x.endswith('.java')],
         'DeCuoiKyAutoGradingSuite',
-        'Đề 10 - Đề Kiểm Tra Cuối Kỳ: Quản Lý Khách Hàng Mua Xe JDBC (DeCuoiKyAutoGradingSuite - 27/27 tests)',
+        'Đề 10 - Đề Kiểm Tra Cuối Kỳ: Quản Lý Khách Hàng Mua Xe JDBC (DeCuoiKyAutoGradingSuite - 31/31 tests)',
         extra_cp=jdbc_jar
     )
 

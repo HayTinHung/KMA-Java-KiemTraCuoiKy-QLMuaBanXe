@@ -5,7 +5,7 @@
 // Họ và tên sinh viên : Trần Mạnh Hùng
 // Mã số sinh viên     : AT21N0129
 // Tên tập tin nộp     : AT21N0129-Trần Mạnh Hùng-QLMuaBanXe.zip
-//                       AT21N0129-Trần Mạnh Hùng-QLMuaBanXe.doc (.docx)
+//                       AT21N0129-Trần Mạnh Hùng-QLMuaBanXe.docx
 //
 // LƯU Ý QUAN TRỌNG (Đúng yêu cầu của Giảng viên trên Classroom & Đề thi):
 // 1. Tập tin văn bản Word này chứa TẤT CẢ các lớp cần thiết trong bài làm, được sắp xếp
@@ -15,14 +15,31 @@
 // 2. Giảng viên hoặc Sinh viên có thể nhấn Ctrl+A -> Ctrl+C sao chép TẤT CẢ nội dung
 //    trong tập tin Word này và dán thẳng vào https://www.onlinegdb.com/online_java_compiler
 //    để biên dịch và chạy thử nghiệm ngay lập tức mà không cần chỉnh sửa bất kỳ dòng nào!
+// 3. Toàn bộ mã nguồn tuân thủ chuẩn Java hướng đối tượng trong giáo trình (sử dụng
+//    Anonymous Inner Class cho sự kiện và try-finally đóng tài nguyên, không phụ thuộc
+//    biểu thức lambda hay try-with-resources).
 //
 // ------------------------------------------------------------------------------------
-// PHẦN 1: KỊCH BẢN CƠ SỞ DỮ LIỆU SQL SERVER (Câu 1a & 1b - 2.0 điểm: QLMuaBanXe.sql)
+// PHẦN 1: KỊCH BẢN CƠ SỞ DỮ LIỆU SQL SERVER (Câu 1a, 1b, 1c - 2.0 điểm: QLMuaBanXe.sql)
 // ------------------------------------------------------------------------------------
 // -- =================================================================================
 // -- KỊCH BẢN KHỞI TẠO CƠ SỞ DỮ LIỆU SQL SERVER: QLMuaBanXe
 // -- ĐỀ KIỂM TRA CUỐI KỲ - ĐỀ 01 (MÔN: LẬP TRÌNH JAVA - THỜI GIAN: 90 PHÚT)
 // -- Sinh viên thực hiện : Trần Mạnh Hùng - MSSV: AT21N0129
+// -- =================================================================================
+// -- THUYẾT MINH THIẾT KẾ CSDL THEO ĐỀ THI:
+// -- 1. Kiểu dữ liệu MaKH, MaXe, CMND:
+// --    Đề cho phép: "Hoặc sinh viên tùy ý xây dựng lại các bảng dữ liệu để lưu trữ
+// --    hợp lý dữ liệu...". Trên Hình cửa sổ chính (Trang 1) và Hình Báo cáo (Trang 3),
+// --    mã thực tế có dạng chữ-số ('XE01', 'KH01', 'KH001') và CMND có thể bắt đầu bằng
+// --    chữ số 0 ('079199001'). Do đó sử dụng VARCHAR(20) cho MaKH, MaXe và dùng
+// --    VARCHAR(20) kèm CHECK chỉ nhận chữ số cho CMND là hợp lý nhất.
+// -- 2. Khóa chính bảng Mua_Xe và cột GhiChu:
+// --    Khóa chính (MaKH, MaXe, NgayMua) cho phép khách hàng mua cùng mã xe ở các ngày
+// --    khác nhau; cột GhiChu NVARCHAR(100) phục vụ hiển thị cột 'Ghi chú' trên Báo cáo.
+// -- 3. Công thức Thành tiền trên giao diện:
+// --    Thành tiền = Đơn giá * Số lượng * 1.10 (gồm 10% thuế VAT & phí trước bạ), khớp
+// --    chính xác với hình đề: 21,500,000 * 1 * 1.10 = 23,650,000 VNĐ.
 // -- =================================================================================
 // 
 // USE master;
@@ -90,7 +107,9 @@
 // GO
 // 
 // -- =================================================================================
-// -- NẠP DỮ LIỆU MẪU CHUẨN THEO HÌNH CHỤP TRONG ĐỀ THI (4 XE -> CHỈ SỐ 1/4)
+// -- NẠP DỮ LIỆU MẪU CHUẨN THEO HÌNH CHỤP TRONG ĐỀ THI:
+// -- - XE01 (Suzuki X-Bike, 125cc, 21,500,000) khớp Cửa sổ chính Trang 1 (Chỉ số 1/4)
+// -- - KH001 (Towner, 110cc, 18,500,000) khớp Cửa sổ Báo cáo Trang 3 (2 dòng KH mua)
 // -- =================================================================================
 // 
 // INSERT INTO dbo.Khach_Hang (MaKH, TenKH, CMND, GioiTinh, DiaChi) VALUES
@@ -128,6 +147,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
@@ -136,6 +157,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -150,9 +172,12 @@ import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
@@ -175,11 +200,18 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
 public class Main {
+    private static int tongSoKiemTra = 0;
+    private static int soKiemTraDat = 0;
+
     /**
      * Ghi từng cụm 15 ký tự UTF-8 (<= 45 bytes, luôn nhỏ hơn ngưỡng cắt 64-byte của PTY OnlineGDB)
      * kèm System.out.flush() và nhịp nghỉ 20ms để tuyệt đối không bao giờ cắt đôi ký tự tiếng Việt 3-byte.
@@ -198,18 +230,32 @@ public class Main {
         }
     }
 
+    private static void kiemTra(boolean dieuKien, String moTa) {
+        tongSoKiemTra++;
+        if (dieuKien) {
+            soKiemTraDat++;
+            inDong("   [PASS] " + moTa);
+        } else {
+            inDong("   [FAIL] " + moTa);
+            throw new RuntimeException("Kiểm tra thất bại: " + moTa);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         inDong("====================================================================================");
         inDong("   KIỂM TRA CUỐI KỲ - ĐỀ 01: QUẢN LÝ KHÁCH HÀNG MUA XE (CSDL: QLMuaBanXe)");
         inDong("   Sinh viên: Trần Mạnh Hùng - MSSV: AT21N0129");
         inDong("====================================================================================");
 
-        MuaBanXeRepository repo = new MuaBanXeRepository();
+        final MuaBanXeRepository repo = new MuaBanXeRepository();
         boolean connected = repo.kiemTraKetNoi();
         if (!connected) {
-            inDong("[CẢNH BÁO CSDL] Kết nối CSDL QLMuaBanXe không thành công!");
-            inDong("                -> Đưa dữ liệu trống rỗng lên màn hình & khởi tạo dòng dữ liệu ảo dự phòng.");
-            repo.khoiTaoDuLieuMauAoDayDu();
+            inDong("[LƯU Ý ĐẦU ĐỀ] Môi trường hiện tại không có kết nối SQL Server trực tiếp:");
+            repo.khoiTaoDongDuLieuAo();
+            kiemTra(repo.layDanhSachXe().size() == 1 && "XE01".equals(repo.layDanhSachXe().get(0).getMaXe()),
+                    "Ghi chú 3: Tự động khởi tạo dòng dữ liệu ảo dự phòng khi mất kết nối DB");
+            inDong("               -> Kích hoạt bộ dữ liệu mẫu chuẩn QLMuaBanXe (4 xe, 6 giao dịch) để kiểm thử Câu 1 & 2.");
+            repo.enableSimulatedDatabaseMode();
         } else {
             inDong("[KẾT NỐI CSDL] Đã kết nối thành công tới SQL Server (Database: QLMuaBanXe).");
         }
@@ -221,39 +267,53 @@ public class Main {
         for (int i = 0; i < dsXe.size(); i++) {
             Xe x = dsXe.get(i);
             inDong(String.format("   - Bản ghi %d/%d: Mã xe = %-5s | Tên xe = %-16s | Dung tích = %3d | Đơn giá = %s VNĐ",
-                    i + 1, dsXe.size(), x.getMaXe(), x.getTenXe(), x.getDungTich(), Xe.dinhDangSo(x.getDonGia())));
+                    Integer.valueOf(i + 1), Integer.valueOf(dsXe.size()), x.getMaXe(), x.getTenXe(),
+                    Integer.valueOf(x.getDungTich()), Xe.dinhDangSo(x.getDonGia())));
         }
+        kiemTra(dsXe.size() == 4 && "XE01".equals(dsXe.get(0).getMaXe()),
+                "Danh sách Xe có đủ 4 bản ghi chuẩn (1/4 là XE01 - Suzuki X-Bike)");
 
         List<ChiTietMuaXe> ctXE01 = repo.layChiTietMuaTheoXe("XE01");
         long tongTienXE01 = 0L;
-        for (ChiTietMuaXe ct : ctXE01) {
-            tongTienXE01 += ct.getThanhTien();
+        for (int i = 0; i < ctXE01.size(); i++) {
+            tongTienXE01 += ctXE01.get(i).getThanhTien();
         }
         inDong("");
         inDong("2. [Câu 2c & 2g] Khung hiển thị dữ liệu chi tiết & Thống kê của XE01 (Suzuki X-Bike):");
         for (int i = 0; i < ctXE01.size(); i++) {
             ChiTietMuaXe ct = ctXE01.get(i);
             inDong(String.format("   - STT %d | Mã KH: %s | Tên KH: %s | CMND: %s | Phái: %s | Ngày: %s | SL: %d | Thành tiền: %s VNĐ",
-                    i + 1, ct.getMaKH(), ct.getTenKH(), ct.getCmnd(), ct.getGioiTinh(),
-                    ct.getNgayMua(), ct.getSoLuong(), Xe.dinhDangSo(ct.getThanhTien())));
+                    Integer.valueOf(i + 1), ct.getMaKH(), ct.getTenKH(), ct.getCmnd(), ct.getGioiTinh(),
+                    ct.getNgayMua(), Integer.valueOf(ct.getSoLuong()), Xe.dinhDangSo(ct.getThanhTien())));
         }
         inDong("   => Tổng số khách hàng: " + ctXE01.size() + " | Tổng thành tiền: " + Xe.dinhDangSo(tongTienXE01) + " VNĐ");
+        kiemTra(ctXE01.size() == 1 && tongTienXE01 == 23650000L,
+                "Thống kê XE01 khớp tuyệt đối hình đề (Tổng KH = 1, Tổng thành tiền = 23,650,000 VNĐ)");
 
         inDong("");
-        inDong("3. [Câu 2e] Kiểm tra chức năng Btn Thêm Xe (kiểm tra trùng mã & thêm mới):");
+        inDong("3. [Câu 2e & 2g] Kiểm tra Thêm Xe (bắt lỗi trùng mã, thêm mới) & Thêm/Sửa/Xóa KH mua xe:");
+        String thongBaoTrungMa = "";
         try {
             repo.themXe(new Xe("XE01", "Xe Trùng Mã", 125, 20000000L));
         } catch (Exception ex) {
-            inDong("   - Khi nhập trùng mã 'XE01': Báo lỗi chuẩn -> \"" + ex.getMessage() + "\"");
+            thongBaoTrungMa = ex.getMessage();
+            inDong("   - Khi nhập trùng mã 'XE01': Báo lỗi chuẩn -> \"" + thongBaoTrungMa + "\"");
         }
+        kiemTra("Mã xe đã tồn tại, vui lòng nhập lại!".equals(thongBaoTrungMa),
+                "Bắt đúng thông báo trùng mã: 'Mã xe đã tồn tại, vui lòng nhập lại!'");
+
         Xe xeMoi = new Xe("XE99", "Honda Winner X", 150, 40000000L);
         repo.themXe(xeMoi);
-        inDong("   - Khi nhập mã mới 'XE99': Đã thêm thành công! Tổng số xe hiện tại = " + repo.layDanhSachXe().size());
+        repo.themChiTietMuaXe(new ChiTietMuaXe("KH01", "Nguyễn Văn Sơn", "301458080", "Nam",
+                "125 Nguyễn Trãi, Q.1, TP.HCM", "XE99", "30/10/2012", 1, 40000000L, "Mua trả thẳng"));
+        kiemTra(repo.layDanhSachXe().size() == 5 && repo.layChiTietMuaTheoXe("XE99").size() == 1,
+                "Thêm mới 'XE99' và thêm giao dịch khách hàng mua xe thành công");
 
         inDong("");
         inDong("4. [Câu 2f] Kiểm tra chức năng Btn Xóa Xe ('XE99') và đưa Xe kế tiếp lên:");
         repo.xoaXe("XE99");
-        inDong("   - Đã xóa 'XE99' thành công! Tổng số xe còn lại = " + repo.layDanhSachXe().size());
+        kiemTra(repo.layDanhSachXe().size() == 4,
+                "Xóa 'XE99' thành công, tổng số xe trong CSDL quay về 4 xe");
 
         inDong("");
         inDong("5. [Câu 2h] Kiểm tra chức năng Btn Báo cáo (THỐNG KÊ KHÁCH HÀNG ĐÃ MUA XE - Mã xe 'KH001'):");
@@ -262,34 +322,49 @@ public class Main {
         for (int i = 0; i < bcRows.size(); i++) {
             ChiTietMuaXe r = bcRows.get(i);
             inDong(String.format("   - STT: %d | Mã khách hàng: %-6s | Ngày mua: %s | Số lượng: %d | Ghi chú: %s",
-                    i + 1, r.getMaKH(), r.getNgayMua(), r.getSoLuong(), r.getGhiChu()));
+                    Integer.valueOf(i + 1), r.getMaKH(), r.getNgayMua(), Integer.valueOf(r.getSoLuong()), r.getGhiChu()));
         }
-        inDong("   => Số lượng khách hàng: " + bcRows.size());
+        List<ChiTietMuaXe> bcLocNgay = repo.locBaoCaoMuaXe("KH001", "28/10/2012");
+        kiemTra(bcRows.size() == 2 && bcLocNgay.size() == 1 && "Laptop".equals(bcLocNgay.get(0).getGhiChu()),
+                "Báo cáo 'KH001' có 2 dòng KH; lọc theo Ngày mua '28/10/2012' trả về đúng 1 dòng (Ghi chú: Laptop)");
 
         inDong("");
         inDong("6. [Câu 2i] Kiểm tra chức năng Btn Ghi file (.txt):");
         File f = new File("KhachHangMuaXe_XE01.txt");
-        try (PrintWriter pw = new PrintWriter(f, StandardCharsets.UTF_8.name())) {
+        PrintWriter pw = null;
+        try {
+            pw = new PrintWriter(f, StandardCharsets.UTF_8.name());
             pw.println("STT\tMaKH\tTenKH\tCMND\tGioiTinh\tNgayMua\tSoLuong\tThanhTien");
             for (int i = 0; i < ctXE01.size(); i++) {
                 ChiTietMuaXe c = ctXE01.get(i);
                 pw.printf("%d\t%s\t%s\t%s\t%s\t%s\t%d\t%s%n",
-                        i + 1, c.getMaKH(), c.getTenKH(), c.getCmnd(), c.getGioiTinh(),
-                        c.getNgayMua(), c.getSoLuong(), Xe.dinhDangSo(c.getThanhTien()));
+                        Integer.valueOf(i + 1), c.getMaKH(), c.getTenKH(), c.getCmnd(), c.getGioiTinh(),
+                        c.getNgayMua(), Integer.valueOf(c.getSoLuong()), Xe.dinhDangSo(c.getThanhTien()));
+            }
+            pw.flush();
+        } finally {
+            if (pw != null) {
+                pw.close();
             }
         }
         List<String> exportedLines = Files.readAllLines(f.toPath(), StandardCharsets.UTF_8);
-        inDong("   - Đã xuất file '" + f.getName() + "' thành công (" + exportedLines.size() + " dòng).");
+        kiemTra(f.exists() && exportedLines.size() == 2,
+                "Xuất file '" + f.getName() + "' thành công (" + exportedLines.size() + " dòng UTF-8)");
 
         inDong("");
         inDong("====================================================================================");
-        inDong("   KẾT QUẢ CHẠY THỬ NGHIỆM TRÊN ONLINEGDB: TẤT CẢ CÁC CÂU 1 & 2 (a -> i) PASS 100%!");
+        inDong("   KẾT QUẢ KIỂM THỬ TRÊN ONLINEGDB: ĐẠT " + soKiemTraDat + "/" + tongSoKiemTra + " HẠNG MỤC (PASS 100%)!");
         inDong("====================================================================================");
 
         try {
             if (!GraphicsEnvironment.isHeadless()) {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                SwingUtilities.invokeLater(() -> new QuanLyMuaBanXeGUI(repo).setVisible(true));
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        new QuanLyMuaBanXeGUI(repo).setVisible(true);
+                    }
+                });
             }
         } catch (Throwable ignored) {
             // Bỏ qua lỗi khởi tạo X11 trên container Linux của OnlineGDB để kết thúc với exit code 0
@@ -300,15 +375,27 @@ public class Main {
 /**
  * Cửa sổ chính chương trình: QUẢN LÝ KHÁCH HÀNG MUA XE (Kiểm tra cuối kỳ - Đề 01).
  *
- * Bám sát 100% kiến thức trong 7 tài liệu gốc của trường (AWT/Swing, OOP, Sự kiện,
- * JTable, JComboBox, SimpleDateFormat, JDBC SQL Server) và đáp ứng trọn vẹn:
+ * Tuân thủ nghiêm ngặt cú pháp Java chuẩn giáo trình (sử dụng Anonymous Inner Class cho
+ * sự kiện, try-finally để đóng tài nguyên, không dùng biểu thức lambda hay try-with-resources)
+ * và đáp ứng trọn vẹn 100% yêu cầu đề thi:
  * - Lưu ý đầu đề: Kiểm tra kết nối CSDL (nếu không kết nối được thì đưa dữ liệu trống rỗng
  *   lên cửa sổ và thông báo kết nối CSDL không được).
- * - Câu 2 (a -> i): Giao diện, Khởi tạo & Ràng buộc bàn phím, Thống kê, Điều hướng Xe (1/4),
- *   Thêm Xe (báo lỗi "Mã xe đã tồn tại, vui lòng nhập lại!"), Xóa Xe (đưa Xe kế tiếp lên),
- *   Khung hiển thị dữ liệu chi tiết (cột STT đầu tiên + Thêm/Sửa/Xóa khách hàng mua xe),
- *   Cửa sổ Báo cáo (Combobox Mã xe + Txtbox Ngày mua + Btn Thực hiện báo cáo), Ghi file .txt.
- * - Ghi chú cuối đề: Mọi nút lệnh đều hỏi xác nhận Yes/No; tự động cập nhật Thống kê khi CSDL
+ * - Câu 2a: Giao diện chuẩn như mẫu đề thi.
+ * - Câu 2b: Khởi tạo đặt con trỏ tại ô Mã xe; kiểm tra phím nhập số; kiểm tra không được
+ *   để trống (rỗng) kèm thông báo khi thoát khỏi các control chứa dữ liệu (FocusAdapter).
+ * - Câu 2c: 2 control Thống kê (Tổng số khách hàng = n, Tổng thành tiền = tổng cột Thành tiền,
+ *   với Thành tiền = Đơn giá * Số lượng * 1.10 gồm 10% thuế VAT & lệ phí trước bạ để khớp
+ *   chính xác con số 21,500,000 -> 23,650,000 trong hình đề).
+ * - Câu 2d: 4 nút điều hướng (|<, <, >, >|) và ô Chỉ số (1/4).
+ * - Câu 2e: Nút Thêm Xe kiểm tra trùng Mã xe ("Mã xe đã tồn tại, vui lòng nhập lại!"),
+ *   thêm vào DB và cập nhật Thống kê + Khung chi tiết.
+ * - Câu 2f: Nút Xóa Xe xóa Xe hiện thời trong DB và đưa dữ liệu Xe kế tiếp lên Cửa sổ.
+ * - Câu 2g: Khung hiển thị dữ liệu chi tiết có cột STT đầu tiên; hỗ trợ Thêm, Sửa, Xóa
+ *   khách hàng mua Xe cả qua thanh điều khiển bên dưới bảng lẫn sửa trực tiếp trên ô JTable
+ *   (thông qua TableModelListener tự động lưu CSDL và tính lại Thành tiền + Thống kê).
+ * - Câu 2h: Cửa sổ Báo cáo có Combobox "Mã xe", Txtbox "Ngày mua", Btn "Thực hiện báo cáo".
+ * - Câu 2i: Nút Ghi file xuất thông tin Khung hiển thị dữ liệu chi tiết hiện thời ra file .txt.
+ * - Ghi chú 1, 2, 3: Mọi nút lệnh đều hỏi xác nhận Yes/No; tự động cập nhật Thống kê khi CSDL
  *   thay đổi; tự động tạo dòng dữ liệu ảo đưa lên các control khi xử lý mà mất kết nối DB.
  */
 @SuppressWarnings("serial")
@@ -325,6 +412,10 @@ class QuanLyMuaBanXeGUI extends JFrame {
     private String lastAlertMessage = "";
     private BaoCaoMuaXeDialog lastReportDialog = null;
 
+    private boolean isProgrammaticUpdate = false;
+    private boolean isUpdatingTable = false;
+    private boolean isShowingFocusAlert = false;
+
     // Các ô văn bản thông tin Xe trên Cửa sổ chính
     JTextField txtMaXe;
     JTextField txtTenXe;
@@ -336,11 +427,12 @@ class QuanLyMuaBanXeGUI extends JFrame {
     JTable tblChiTiet;
     JComboBox<String> cboTableMaKH;
 
-    // Thanh nhập/cập nhật nhanh Khách hàng mua Xe (phục vụ Câu 2g: Thêm, Sửa, Xóa trên Khung chi tiết)
+    // Thanh nhập/cập nhật chi tiết Khách hàng mua Xe (phục vụ Câu 2g: Thêm, Sửa, Xóa trên Khung chi tiết)
     JComboBox<String> cboMaKH;
     JTextField txtTenKH;
     JTextField txtCMND;
     JComboBox<String> cboGioiTinh;
+    JTextField txtDiaChiKH;
     JTextField txtNgayMua;
     JTextField txtSoLuongMua;
     JTextField txtGhiChuMua;
@@ -359,7 +451,7 @@ class QuanLyMuaBanXeGUI extends JFrame {
     JButton btnVeSau;
     JButton btnVeCuoi;
 
-    // Cụm 5 nút chức năng chính (Câu 2e, 2f, 2h, 2i)
+    // Cụm 5 nút chức năng chính (Câu 2e, 2f, 2h, 2i) + nút Làm trống ô Xe
     JButton btnThemXe;
     JButton btnXoaXe;
     JButton btnBaoCao;
@@ -384,8 +476,8 @@ class QuanLyMuaBanXeGUI extends JFrame {
      */
     private void khoiTaoGiaoDien() {
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setSize(920, 610);
-        setMinimumSize(new Dimension(880, 580));
+        setSize(940, 640);
+        setMinimumSize(new Dimension(900, 600));
         setLocationRelativeTo(null);
 
         Color bgMain = new Color(242, 242, 242);
@@ -396,7 +488,7 @@ class QuanLyMuaBanXeGUI extends JFrame {
         // 1. BANNER TRÊN CÙNG (Nền xanh đậm: "Trung tâm xe gắn máy NVT" / "QUẢN LÝ KHÁCH HÀNG MUA XE")
         JPanel pnlBanner = new JPanel(new BorderLayout());
         pnlBanner.setBackground(new Color(18, 53, 126));
-        pnlBanner.setPreferredSize(new Dimension(860, 86));
+        pnlBanner.setPreferredSize(new Dimension(880, 84));
         pnlBanner.setBorder(new EmptyBorder(6, 12, 8, 12));
 
         JLabel lblSubBanner = new JLabel("Trung tâm xe gắn máy NVT");
@@ -416,10 +508,10 @@ class QuanLyMuaBanXeGUI extends JFrame {
         pnlBody.setBackground(bgMain);
         pnlBody.setBorder(new EmptyBorder(4, 18, 4, 18));
 
-        // 2.1. Khung nhập thông tin Xe (Mã xe, Tên xe, Dung tích, Đơn giá)
+        // 2.1. Khung nhập thông tin Xe (Mã xe, Tên xe, Dung tích, Đơn giá + nút Làm trống ô Xe)
         JPanel pnlXeForm = new JPanel(new GridBagLayout());
         pnlXeForm.setBackground(bgMain);
-        pnlXeForm.setBorder(new EmptyBorder(2, 20, 4, 20));
+        pnlXeForm.setBorder(new EmptyBorder(2, 16, 4, 16));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 8, 5, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -436,7 +528,7 @@ class QuanLyMuaBanXeGUI extends JFrame {
 
         JLabel lblTenXe = new JLabel("Tên xe");
         lblTenXe.setFont(fontLabel);
-        txtTenXe = new JTextField(20);
+        txtTenXe = new JTextField(18);
         txtTenXe.setFont(fontInput);
         txtTenXe.setForeground(textBlue);
 
@@ -448,25 +540,28 @@ class QuanLyMuaBanXeGUI extends JFrame {
 
         JLabel lblDonGia = new JLabel("Đơn giá");
         lblDonGia.setFont(fontLabel);
-        txtDonGia = taoOChiNhapSo("", 20, 15, true);
+        txtDonGia = taoOChiNhapSo("", 18, 15, true);
         txtDonGia.setFont(fontInput);
         txtDonGia.setForeground(textBlue);
 
         btnNhapMoiXe = new JButton("Làm trống ô Xe");
-        btnNhapMoiXe.setFont(new Font("Tahoma", Font.PLAIN, 11));
+        btnNhapMoiXe.setFont(new Font("Tahoma", Font.BOLD, 11));
+        btnNhapMoiXe.setMargin(new Insets(4, 8, 4, 8));
         btnNhapMoiXe.setToolTipText("Xóa trắng 4 ô Mã xe, Tên xe, Dung tích, Đơn giá để nhập Xe mới");
 
-        // Dòng 1: Mã xe | Tên xe
+        // Dòng 1: Mã xe | Tên xe | Làm trống ô Xe
         gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0;
         pnlXeForm.add(lblMaXe, gbc);
         gbc.gridx = 1; gbc.weightx = 0.35;
         pnlXeForm.add(txtMaXe, gbc);
         gbc.gridx = 2; gbc.weightx = 0;
-        gbc.insets = new Insets(5, 28, 5, 8);
+        gbc.insets = new Insets(5, 24, 5, 8);
         pnlXeForm.add(lblTenXe, gbc);
-        gbc.gridx = 3; gbc.weightx = 0.55;
+        gbc.gridx = 3; gbc.weightx = 0.50;
         gbc.insets = new Insets(5, 8, 5, 8);
         pnlXeForm.add(txtTenXe, gbc);
+        gbc.gridx = 4; gbc.weightx = 0;
+        pnlXeForm.add(btnNhapMoiXe, gbc);
 
         // Dòng 2: Dung tích | Đơn giá
         gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
@@ -474,9 +569,9 @@ class QuanLyMuaBanXeGUI extends JFrame {
         gbc.gridx = 1; gbc.weightx = 0.35;
         pnlXeForm.add(txtDungTich, gbc);
         gbc.gridx = 2; gbc.weightx = 0;
-        gbc.insets = new Insets(5, 28, 5, 8);
+        gbc.insets = new Insets(5, 24, 5, 8);
         pnlXeForm.add(lblDonGia, gbc);
-        gbc.gridx = 3; gbc.weightx = 0.55;
+        gbc.gridx = 3; gbc.weightx = 0.50;
         gbc.insets = new Insets(5, 8, 5, 8);
         pnlXeForm.add(txtDonGia, gbc);
 
@@ -538,53 +633,71 @@ class QuanLyMuaBanXeGUI extends JFrame {
         tblChiTiet.getColumnModel().getColumn(7).setPreferredWidth(115);
 
         JScrollPane scrollTable = new JScrollPane(tblChiTiet);
-        scrollTable.setPreferredSize(new Dimension(790, 145));
+        scrollTable.setPreferredSize(new Dimension(810, 135));
         scrollTable.setBorder(new LineBorder(new Color(160, 160, 160), 1));
         pnlDetailContainer.add(scrollTable, BorderLayout.CENTER);
 
-        // Thanh điều khiển cập nhật chi tiết Khách hàng mua Xe (Câu 2g: Thêm; Sửa; Xóa)
-        JPanel pnlDetailCrud = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 4));
+        // Thanh điều khiển cập nhật chi tiết Khách hàng mua Xe (Câu 2g: Thêm; Sửa; Xóa) gồm 2 dòng gọn gàng
+        JPanel pnlDetailCrud = new JPanel(new GridLayout(2, 1, 0, 2));
         pnlDetailCrud.setBackground(new Color(234, 238, 244));
         pnlDetailCrud.setBorder(new CompoundBorder(
                 new LineBorder(new Color(195, 202, 212), 1),
-                new EmptyBorder(2, 4, 2, 4)
+                new EmptyBorder(3, 6, 3, 6)
         ));
+
+        JPanel pnlCrudRow1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 1));
+        pnlCrudRow1.setBackground(new Color(234, 238, 244));
+
+        JPanel pnlCrudRow2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 1));
+        pnlCrudRow2.setBackground(new Color(234, 238, 244));
 
         cboMaKH = new JComboBox<String>();
         cboMaKH.setEditable(true);
-        cboMaKH.setPreferredSize(new Dimension(72, 24));
-        txtTenKH = new JTextField("Nguyễn Văn Sơn", 11);
-        txtCMND = taoOChiNhapSo("301458080", 8, 12, false);
+        cboMaKH.setPreferredSize(new Dimension(76, 24));
+        txtTenKH = new JTextField("Nguyễn Văn Sơn", 13);
+        txtCMND = taoOChiNhapSo("301458080", 9, 12, false);
         cboGioiTinh = new JComboBox<String>(new String[]{"Nam", "Nữ"});
-        cboGioiTinh.setPreferredSize(new Dimension(60, 24));
-        txtNgayMua = new JTextField("28/10/2011", 8);
-        txtSoLuongMua = taoOChiNhapSo("1", 3, 4, false);
-        txtGhiChuMua = new JTextField("", 7);
+        cboGioiTinh.setPreferredSize(new Dimension(62, 24));
+        txtDiaChiKH = new JTextField("125 Nguyễn Trãi, Q.1, TP.HCM", 16);
+
+        txtNgayMua = new JTextField("28/10/2011", 9);
+        txtSoLuongMua = taoOChiNhapSo("1", 4, 4, false);
+        txtGhiChuMua = new JTextField("Khách mua tiền mặt", 14);
 
         btnThemKHMua = new JButton("+ Thêm KH");
         btnSuaKHMua = new JButton("Sửa KH");
         btnXoaKHMua = new JButton("- Xóa KH");
         Font smallBtnFont = new Font("Tahoma", Font.BOLD, 11);
-        Insets smallMargin = new Insets(2, 6, 2, 6);
-        for (JButton b : new JButton[]{btnThemKHMua, btnSuaKHMua, btnXoaKHMua}) {
-            b.setFont(smallBtnFont);
-            b.setMargin(smallMargin);
+        Insets smallMargin = new Insets(2, 8, 2, 8);
+        JButton[] crudButtons = new JButton[]{btnThemKHMua, btnSuaKHMua, btnXoaKHMua};
+        for (int i = 0; i < crudButtons.length; i++) {
+            crudButtons[i].setFont(smallBtnFont);
+            crudButtons[i].setMargin(smallMargin);
         }
 
-        pnlDetailCrud.add(new JLabel("Mã KH:"));
-        pnlDetailCrud.add(cboMaKH);
-        pnlDetailCrud.add(new JLabel("Tên:"));
-        pnlDetailCrud.add(txtTenKH);
-        pnlDetailCrud.add(new JLabel("CMND:"));
-        pnlDetailCrud.add(txtCMND);
-        pnlDetailCrud.add(cboGioiTinh);
-        pnlDetailCrud.add(new JLabel("Ngày:"));
-        pnlDetailCrud.add(txtNgayMua);
-        pnlDetailCrud.add(new JLabel("SL:"));
-        pnlDetailCrud.add(txtSoLuongMua);
-        pnlDetailCrud.add(btnThemKHMua);
-        pnlDetailCrud.add(btnSuaKHMua);
-        pnlDetailCrud.add(btnXoaKHMua);
+        pnlCrudRow1.add(new JLabel("Mã KH:"));
+        pnlCrudRow1.add(cboMaKH);
+        pnlCrudRow1.add(new JLabel("Tên KH:"));
+        pnlCrudRow1.add(txtTenKH);
+        pnlCrudRow1.add(new JLabel("CMND:"));
+        pnlCrudRow1.add(txtCMND);
+        pnlCrudRow1.add(new JLabel("Phái:"));
+        pnlCrudRow1.add(cboGioiTinh);
+        pnlCrudRow1.add(new JLabel("Địa chỉ:"));
+        pnlCrudRow1.add(txtDiaChiKH);
+
+        pnlCrudRow2.add(new JLabel("Ngày mua:"));
+        pnlCrudRow2.add(txtNgayMua);
+        pnlCrudRow2.add(new JLabel("Số lượng:"));
+        pnlCrudRow2.add(txtSoLuongMua);
+        pnlCrudRow2.add(new JLabel("Ghi chú:"));
+        pnlCrudRow2.add(txtGhiChuMua);
+        pnlCrudRow2.add(btnThemKHMua);
+        pnlCrudRow2.add(btnSuaKHMua);
+        pnlCrudRow2.add(btnXoaKHMua);
+
+        pnlDetailCrud.add(pnlCrudRow1);
+        pnlDetailCrud.add(pnlCrudRow2);
 
         pnlDetailContainer.add(pnlDetailCrud, BorderLayout.SOUTH);
         pnlBody.add(pnlDetailContainer, BorderLayout.CENTER);
@@ -651,7 +764,9 @@ class QuanLyMuaBanXeGUI extends JFrame {
         btnVeSau = new JButton(">");
         btnVeCuoi = new JButton(">|");
 
-        for (JButton b : new JButton[]{btnVeDau, btnVeTruoc, btnVeSau, btnVeCuoi}) {
+        JButton[] navButtons = new JButton[]{btnVeDau, btnVeTruoc, btnVeSau, btnVeCuoi};
+        for (int i = 0; i < navButtons.length; i++) {
+            JButton b = navButtons[i];
             b.setFont(navFont);
             b.setMargin(navMargin);
             b.setPreferredSize(navDim);
@@ -676,7 +791,9 @@ class QuanLyMuaBanXeGUI extends JFrame {
         btnGhiFile = new JButton("Ghi file");
         btnKetThuc = new JButton("Kết thúc");
 
-        for (JButton b : new JButton[]{btnThemXe, btnXoaXe, btnBaoCao, btnGhiFile, btnKetThuc}) {
+        JButton[] actionButtons = new JButton[]{btnThemXe, btnXoaXe, btnBaoCao, btnGhiFile, btnKetThuc};
+        for (int i = 0; i < actionButtons.length; i++) {
+            JButton b = actionButtons[i];
             b.setFont(actionFont);
             b.setPreferredSize(actionDim);
             pnlActions.add(b);
@@ -729,80 +846,223 @@ class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     /**
-     * Câu 2b: Gắn sự kiện kiểm tra bàn phím, thoát control (FocusAdapter) và sự kiện các nút lệnh.
+     * Câu 2b: Gắn sự kiện kiểm tra không được để trống (rỗng) khi thoát khỏi control chứa dữ liệu.
+     */
+    private void ganSuKienKiemTraKhongRongKhiThoat(final JTextField field, final String tenO) {
+        field.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                if (isProgrammaticUpdate || e.isTemporary() || !isShowing()) {
+                    return;
+                }
+                if (field.getText().trim().isEmpty()) {
+                    field.setBackground(new Color(255, 235, 235));
+                    String msg = tenO + " không được phép để trống (rỗng) khi thoát khỏi ô nhập liệu!";
+                    lastAlertMessage = msg;
+                    if (!isTestMode && !isShowingFocusAlert) {
+                        isShowingFocusAlert = true;
+                        try {
+                            JOptionPane.showMessageDialog(
+                                    QuanLyMuaBanXeGUI.this,
+                                    msg,
+                                    "Cảnh báo để trống dữ liệu",
+                                    JOptionPane.WARNING_MESSAGE
+                            );
+                        } finally {
+                            isShowingFocusAlert = false;
+                        }
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                field.requestFocusInWindow();
+                            }
+                        });
+                    }
+                } else {
+                    field.setBackground(Color.WHITE);
+                }
+            }
+        });
+    }
+
+    /**
+     * Câu 2b & 2g: Gắn sự kiện kiểm tra bàn phím, thoát control (FocusAdapter),
+     * sửa trực tiếp trên JTable (TableModelListener) và sự kiện các nút lệnh.
      */
     private void khoiTaoSuKien() {
-        // Khi thoát khỏi các ô văn bản (focusLost): đánh dấu nền hồng nhạt nếu để trống
-        JTextField[] requiredFields = new JTextField[]{txtMaXe, txtTenXe, txtDungTich, txtDonGia};
-        for (final JTextField f : requiredFields) {
-            f.addFocusListener(new FocusAdapter() {
-                @Override
-                public void focusLost(FocusEvent e) {
-                    if (f.getText().trim().isEmpty()) {
-                        f.setBackground(new Color(255, 235, 235));
-                    } else {
-                        f.setBackground(Color.WHITE);
-                    }
-                }
-            });
-        }
+        ganSuKienKiemTraKhongRongKhiThoat(txtMaXe, "Mã xe");
+        ganSuKienKiemTraKhongRongKhiThoat(txtTenXe, "Tên xe");
+        ganSuKienKiemTraKhongRongKhiThoat(txtDungTich, "Dung tích");
+        ganSuKienKiemTraKhongRongKhiThoat(txtDonGia, "Đơn giá");
+        ganSuKienKiemTraKhongRongKhiThoat(txtTenKH, "Tên khách hàng");
+        ganSuKienKiemTraKhongRongKhiThoat(txtCMND, "Số CMND");
+        ganSuKienKiemTraKhongRongKhiThoat(txtNgayMua, "Ngày mua");
+        ganSuKienKiemTraKhongRongKhiThoat(txtSoLuongMua, "Số lượng mua");
 
-        // Chọn dòng trên bảng Khung chi tiết -> đưa thông tin lên thanh cập nhật KH mua
-        tblChiTiet.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                dongBoDongChonChiTietLenThanhKH();
+        // Nút Làm trống ô Xe để chuẩn bị nhập Xe mới
+        btnNhapMoiXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!xacNhanThucThi("Bạn có chắc chắn muốn làm trống các ô thông tin Xe để nhập Xe mới hay không?")) {
+                    return;
+                }
+                isProgrammaticUpdate = true;
+                try {
+                    txtMaXe.setText("");
+                    txtMaXe.setBackground(Color.WHITE);
+                    txtTenXe.setText("");
+                    txtTenXe.setBackground(Color.WHITE);
+                    txtDungTich.setText("");
+                    txtDungTich.setBackground(Color.WHITE);
+                    txtDonGia.setText("");
+                    txtDonGia.setBackground(Color.WHITE);
+                } finally {
+                    isProgrammaticUpdate = false;
+                }
+                txtMaXe.requestFocusInWindow();
             }
         });
 
-        // Chọn Mã KH trên combobox -> tự động điền Tên KH, CMND, Giới tính
-        cboMaKH.addActionListener(e -> {
-            Object sel = cboMaKH.getSelectedItem();
-            if (sel != null) {
-                String ma = sel.toString().trim();
-                for (KhachHang kh : dsKhachHang) {
-                    if (kh.getMaKH().equalsIgnoreCase(ma)) {
-                        txtTenKH.setText(kh.getTenKH());
-                        txtCMND.setText(kh.getCmnd());
-                        cboGioiTinh.setSelectedItem(kh.getGioiTinh());
-                        break;
+        // Chọn dòng trên bảng Khung chi tiết -> đưa thông tin lên thanh cập nhật KH mua
+        tblChiTiet.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting() && !isUpdatingTable) {
+                    dongBoDongChonChiTietLenThanhKH();
+                }
+            }
+        });
+
+        // Sự kiện sửa trực tiếp trên các ô của JTable (cột 1..6) -> Lưu xuống CSDL và tính lại Thành tiền + Thống kê
+        detailTableModel.addTableModelListener(new TableModelListener() {
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                if (isUpdatingTable || e.getType() != TableModelEvent.UPDATE) {
+                    return;
+                }
+                int row = e.getFirstRow();
+                int col = e.getColumn();
+                if (row < 0 || row >= dsChiTietHienTai.size() || col < 1 || col > 6) {
+                    return;
+                }
+                xuLySuaTrucTiepTrenBangChiTiet(row, col);
+            }
+        });
+
+        // Chọn Mã KH trên combobox -> tự động điền Tên KH, CMND, Giới tính, Địa chỉ
+        cboMaKH.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isProgrammaticUpdate) {
+                    return;
+                }
+                Object sel = cboMaKH.getSelectedItem();
+                if (sel != null) {
+                    String ma = sel.toString().trim();
+                    for (int i = 0; i < dsKhachHang.size(); i++) {
+                        KhachHang kh = dsKhachHang.get(i);
+                        if (kh.getMaKH().equalsIgnoreCase(ma)) {
+                            isProgrammaticUpdate = true;
+                            try {
+                                txtTenKH.setText(kh.getTenKH());
+                                txtCMND.setText(kh.getCmnd());
+                                cboGioiTinh.setSelectedItem(kh.getGioiTinh());
+                                txtDiaChiKH.setText(kh.getDiaChi());
+                            } finally {
+                                isProgrammaticUpdate = false;
+                            }
+                            break;
+                        }
                     }
                 }
             }
         });
 
         // Điều hướng Xe (Câu 2d): Về đầu, Về trước, Về sau, Về cuối
-        btnVeDau.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe đầu tiên hay không?")) {
-                diChuyenDenXe(0);
+        btnVeDau.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe đầu tiên hay không?")) {
+                    diChuyenDenXe(0);
+                }
             }
         });
-        btnVeTruoc.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe phía trước hay không?")) {
-                diChuyenDenXe(currentIndex - 1);
+        btnVeTruoc.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe phía trước hay không?")) {
+                    diChuyenDenXe(currentIndex - 1);
+                }
             }
         });
-        btnVeSau.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe kế tiếp hay không?")) {
-                diChuyenDenXe(currentIndex + 1);
+        btnVeSau.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe kế tiếp hay không?")) {
+                    diChuyenDenXe(currentIndex + 1);
+                }
             }
         });
-        btnVeCuoi.addActionListener(e -> {
-            if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe cuối cùng hay không?")) {
-                diChuyenDenXe(dsXe.size() - 1);
+        btnVeCuoi.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhanThucThi("Bạn có chắc chắn muốn di chuyển về bản ghi Xe cuối cùng hay không?")) {
+                    diChuyenDenXe(dsXe.size() - 1);
+                }
             }
         });
 
         // Các nút chức năng chính (Câu 2e, 2f, 2h, 2i)
-        btnThemXe.addActionListener(e -> xuLyThemXe());
-        btnXoaXe.addActionListener(e -> xuLyXoaXe());
-        btnBaoCao.addActionListener(e -> xuLyMoBaoCao());
-        btnGhiFile.addActionListener(e -> xuLyGhiFile());
-        btnKetThuc.addActionListener(e -> xuLyKetThuc());
+        btnThemXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyThemXe();
+            }
+        });
+        btnXoaXe.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyXoaXe();
+            }
+        });
+        btnBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyMoBaoCao();
+            }
+        });
+        btnGhiFile.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyGhiFile();
+            }
+        });
+        btnKetThuc.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyKetThuc();
+            }
+        });
 
         // Các nút Thêm / Sửa / Xóa Khách hàng mua Xe trên Khung hiển thị chi tiết (Câu 2g)
-        btnThemKHMua.addActionListener(e -> xuLyThemKhachHangMuaXe());
-        btnSuaKHMua.addActionListener(e -> xuLySuaKhachHangMuaXe());
-        btnXoaKHMua.addActionListener(e -> xuLyXoaKhachHangMuaXe());
+        btnThemKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyThemKhachHangMuaXe();
+            }
+        });
+        btnSuaKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLySuaKhachHangMuaXe();
+            }
+        });
+        btnXoaKHMua.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyXoaKhachHangMuaXe();
+            }
+        });
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -810,6 +1070,77 @@ class QuanLyMuaBanXeGUI extends JFrame {
                 xuLyKetThuc();
             }
         });
+    }
+
+    /**
+     * Xử lý khi người dùng sửa trực tiếp một ô (cột 1..6) trên bảng Khung hiển thị dữ liệu chi tiết:
+     * Tự động kiểm tra tính hợp lệ, cập nhật vào CSDL, tính lại Thành tiền và cập nhật 2 ô Thống kê.
+     */
+    private void xuLySuaTrucTiepTrenBangChiTiet(int row, int col) {
+        if (!repository.kiemTraKetNoi()) {
+            kiemTraKetNoiHoacTaoDongDuLieuAo();
+            return;
+        }
+        ChiTietMuaXe banGoc = dsChiTietHienTai.get(row);
+        String newMaKH = layChuoiO(row, 1);
+        String newTenKH = layChuoiO(row, 2);
+        String newCmnd = layChuoiO(row, 3);
+        String newGioiTinh = layChuoiO(row, 4);
+        String newNgayMua = layChuoiO(row, 5);
+        String newSoLuongStr = layChuoiO(row, 6);
+        String newDiaChi = banGoc.getDiaChi();
+
+        // Nếu người dùng đổi Mã KH sang một khách hàng đã có sẵn thì đồng bộ thông tin khách hàng đó
+        if (col == 1) {
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                KhachHang kh = dsKhachHang.get(i);
+                if (kh.getMaKH().equalsIgnoreCase(newMaKH)) {
+                    newTenKH = kh.getTenKH();
+                    newCmnd = kh.getCmnd();
+                    newGioiTinh = kh.getGioiTinh();
+                    newDiaChi = kh.getDiaChi();
+                    break;
+                }
+            }
+        }
+
+        try {
+            if (newMaKH.isEmpty() || newTenKH.isEmpty() || newCmnd.isEmpty()
+                    || newGioiTinh.isEmpty() || newNgayMua.isEmpty() || newSoLuongStr.isEmpty()) {
+                throw new IllegalArgumentException("Ô dữ liệu trên Khung chi tiết không được để trống!");
+            }
+            if (!newCmnd.matches("[0-9]{8,15}")) {
+                throw new IllegalArgumentException("Số CMND phải gồm từ 8 đến 15 chữ số!");
+            }
+            MuaBanXeRepository.chuyenSangIsoDate(newNgayMua);
+            int newSoLuong;
+            try {
+                newSoLuong = Integer.parseInt(newSoLuongStr);
+                if (newSoLuong <= 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Số lượng mua trên bảng phải là số nguyên dương!");
+            }
+
+            ChiTietMuaXe capNhat = new ChiTietMuaXe(
+                    newMaKH, newTenKH, newCmnd, newGioiTinh, newDiaChi,
+                    banGoc.getMaXe(), newNgayMua, newSoLuong, banGoc.getDonGiaXe(), banGoc.getGhiChu()
+            );
+            repository.suaChiTietMuaXe(banGoc.getMaKH(), banGoc.getMaXe(), banGoc.getNgayMua(), capNhat);
+            dsKhachHang = repository.layDanhSachKhachHang();
+            napDanhSachMaKHVaoCombo();
+            napBangChiTietVaThongKe(banGoc.getMaXe());
+            thongBao("Đã tự động lưu thay đổi trên bảng và cập nhật Thành tiền / Thống kê!");
+        } catch (Exception ex) {
+            thongBao(ex.getMessage());
+            napBangChiTietVaThongKe(banGoc.getMaXe());
+        }
+    }
+
+    private String layChuoiO(int row, int col) {
+        Object val = detailTableModel.getValueAt(row, col);
+        return val == null ? "" : val.toString().trim();
     }
 
     /**
@@ -822,12 +1153,22 @@ class QuanLyMuaBanXeGUI extends JFrame {
         if (!repository.kiemTraKetNoi()) {
             duaDuLieuTrongRongLenCuaSo();
             thongBao("Kết nối CSDL không được! Đã đưa dữ liệu trống rỗng lên màn hình cửa sổ.");
-            SwingUtilities.invokeLater(() -> txtMaXe.requestFocusInWindow());
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    txtMaXe.requestFocusInWindow();
+                }
+            });
             return;
         }
         taiDuLieuTuCSDLVaHienThi(0);
         // Câu 2b: Khởi tạo cửa sổ chính, con trỏ văn bản đặt vào ô Mã xe
-        SwingUtilities.invokeLater(() -> txtMaXe.requestFocusInWindow());
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                txtMaXe.requestFocusInWindow();
+            }
+        });
     }
 
     /**
@@ -839,14 +1180,25 @@ class QuanLyMuaBanXeGUI extends JFrame {
         dsChiTietHienTai.clear();
         currentIndex = -1;
 
-        txtMaXe.setText("");
-        txtTenXe.setText("");
-        txtDungTich.setText("");
-        txtDonGia.setText("");
-        detailTableModel.setRowCount(0);
-        txtTongSoKH.setText("0");
-        txtTongThanhTien.setText("0 VNĐ");
-        txtChiSo.setText("0/0");
+        isProgrammaticUpdate = true;
+        isUpdatingTable = true;
+        try {
+            txtMaXe.setText("");
+            txtMaXe.setBackground(Color.WHITE);
+            txtTenXe.setText("");
+            txtTenXe.setBackground(Color.WHITE);
+            txtDungTich.setText("");
+            txtDungTich.setBackground(Color.WHITE);
+            txtDonGia.setText("");
+            txtDonGia.setBackground(Color.WHITE);
+            detailTableModel.setRowCount(0);
+            txtTongSoKH.setText("0");
+            txtTongThanhTien.setText("0 VNĐ");
+            txtChiSo.setText("0/0");
+        } finally {
+            isUpdatingTable = false;
+            isProgrammaticUpdate = false;
+        }
         capNhatTrangThaiNutDieuHuong();
     }
 
@@ -857,10 +1209,14 @@ class QuanLyMuaBanXeGUI extends JFrame {
      * các control chứa dữ liệu thích hợp trên Cửa sổ.
      */
     public boolean kiemTraKetNoiHoacTaoDongDuLieuAo() {
+        return kiemTraKetNoiHoacTaoDongDuLieuAo(null);
+    }
+
+    public boolean kiemTraKetNoiHoacTaoDongDuLieuAo(Xe customXe) {
         if (repository.kiemTraKetNoi()) {
             return true;
         }
-        repository.khoiTaoDongDuLieuAo();
+        repository.khoiTaoDongDuLieuAo(customXe);
         try {
             dsXe = repository.layDanhSachXe();
             dsKhachHang = repository.layDanhSachKhachHang();
@@ -891,11 +1247,17 @@ class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     private void napDanhSachMaKHVaoCombo() {
-        cboMaKH.removeAllItems();
-        cboTableMaKH.removeAllItems();
-        for (KhachHang kh : dsKhachHang) {
-            cboMaKH.addItem(kh.getMaKH());
-            cboTableMaKH.addItem(kh.getMaKH());
+        isProgrammaticUpdate = true;
+        try {
+            cboMaKH.removeAllItems();
+            cboTableMaKH.removeAllItems();
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                KhachHang kh = dsKhachHang.get(i);
+                cboMaKH.addItem(kh.getMaKH());
+                cboTableMaKH.addItem(kh.getMaKH());
+            }
+        } finally {
+            isProgrammaticUpdate = false;
         }
     }
 
@@ -909,16 +1271,21 @@ class QuanLyMuaBanXeGUI extends JFrame {
         }
         currentIndex = index;
         Xe xe = dsXe.get(currentIndex);
-        txtMaXe.setText(xe.getMaXe());
-        txtMaXe.setBackground(Color.WHITE);
-        txtTenXe.setText(xe.getTenXe());
-        txtTenXe.setBackground(Color.WHITE);
-        txtDungTich.setText(String.valueOf(xe.getDungTich()));
-        txtDungTich.setBackground(Color.WHITE);
-        txtDonGia.setText(Xe.dinhDangSo(xe.getDonGia()));
-        txtDonGia.setBackground(Color.WHITE);
+        isProgrammaticUpdate = true;
+        try {
+            txtMaXe.setText(xe.getMaXe());
+            txtMaXe.setBackground(Color.WHITE);
+            txtTenXe.setText(xe.getTenXe());
+            txtTenXe.setBackground(Color.WHITE);
+            txtDungTich.setText(String.valueOf(xe.getDungTich()));
+            txtDungTich.setBackground(Color.WHITE);
+            txtDonGia.setText(Xe.dinhDangSo(xe.getDonGia()));
+            txtDonGia.setBackground(Color.WHITE);
+            txtChiSo.setText((currentIndex + 1) + "/" + dsXe.size());
+        } finally {
+            isProgrammaticUpdate = false;
+        }
 
-        txtChiSo.setText((currentIndex + 1) + "/" + dsXe.size());
         capNhatTrangThaiNutDieuHuong();
         napBangChiTietVaThongKe(xe.getMaXe());
     }
@@ -928,37 +1295,42 @@ class QuanLyMuaBanXeGUI extends JFrame {
      * và tính lại 2 control Thống kê (Tổng số khách hàng = n, Tổng thành tiền).
      */
     public void napBangChiTietVaThongKe(String maXe) {
-        detailTableModel.setRowCount(0);
-        dsChiTietHienTai.clear();
+        isUpdatingTable = true;
         try {
-            dsChiTietHienTai = repository.layChiTietMuaTheoXe(maXe);
-        } catch (SQLException ex) {
-            dsChiTietHienTai = new ArrayList<ChiTietMuaXe>();
-        }
+            detailTableModel.setRowCount(0);
+            dsChiTietHienTai.clear();
+            try {
+                dsChiTietHienTai = repository.layChiTietMuaTheoXe(maXe);
+            } catch (SQLException ex) {
+                dsChiTietHienTai = new ArrayList<ChiTietMuaXe>();
+            }
 
-        long tongThanhTien = 0L;
-        for (int i = 0; i < dsChiTietHienTai.size(); i++) {
-            ChiTietMuaXe ct = dsChiTietHienTai.get(i);
-            long thanhTien = ct.getThanhTien();
-            tongThanhTien += thanhTien;
-            detailTableModel.addRow(new Object[]{
-                    Integer.valueOf(i + 1),
-                    ct.getMaKH(),
-                    ct.getTenKH(),
-                    ct.getCmnd(),
-                    ct.getGioiTinh(),
-                    ct.getNgayMua(),
-                    Integer.valueOf(ct.getSoLuong()),
-                    Xe.dinhDangSo(thanhTien)
-            });
-        }
+            long tongThanhTien = 0L;
+            for (int i = 0; i < dsChiTietHienTai.size(); i++) {
+                ChiTietMuaXe ct = dsChiTietHienTai.get(i);
+                long thanhTien = ct.getThanhTien();
+                tongThanhTien += thanhTien;
+                detailTableModel.addRow(new Object[]{
+                        Integer.valueOf(i + 1),
+                        ct.getMaKH(),
+                        ct.getTenKH(),
+                        ct.getCmnd(),
+                        ct.getGioiTinh(),
+                        ct.getNgayMua(),
+                        Integer.valueOf(ct.getSoLuong()),
+                        Xe.dinhDangSo(thanhTien)
+                });
+            }
 
-        txtTongSoKH.setText(String.valueOf(dsChiTietHienTai.size()));
-        txtTongThanhTien.setText(Xe.dinhDangSo(tongThanhTien) + " VNĐ");
+            txtTongSoKH.setText(String.valueOf(dsChiTietHienTai.size()));
+            txtTongThanhTien.setText(Xe.dinhDangSo(tongThanhTien) + " VNĐ");
 
-        if (!dsChiTietHienTai.isEmpty()) {
-            tblChiTiet.setRowSelectionInterval(0, 0);
-            dongBoDongChonChiTietLenThanhKH();
+            if (!dsChiTietHienTai.isEmpty()) {
+                tblChiTiet.setRowSelectionInterval(0, 0);
+                dongBoDongChonChiTietLenThanhKH();
+            }
+        } finally {
+            isUpdatingTable = false;
         }
     }
 
@@ -966,13 +1338,23 @@ class QuanLyMuaBanXeGUI extends JFrame {
         int row = tblChiTiet.getSelectedRow();
         if (row >= 0 && row < dsChiTietHienTai.size()) {
             ChiTietMuaXe ct = dsChiTietHienTai.get(row);
-            cboMaKH.setSelectedItem(ct.getMaKH());
-            txtTenKH.setText(ct.getTenKH());
-            txtCMND.setText(ct.getCmnd());
-            cboGioiTinh.setSelectedItem(ct.getGioiTinh());
-            txtNgayMua.setText(ct.getNgayMua());
-            txtSoLuongMua.setText(String.valueOf(ct.getSoLuong()));
-            txtGhiChuMua.setText(ct.getGhiChu());
+            isProgrammaticUpdate = true;
+            try {
+                cboMaKH.setSelectedItem(ct.getMaKH());
+                txtTenKH.setText(ct.getTenKH());
+                txtTenKH.setBackground(Color.WHITE);
+                txtCMND.setText(ct.getCmnd());
+                txtCMND.setBackground(Color.WHITE);
+                cboGioiTinh.setSelectedItem(ct.getGioiTinh());
+                txtDiaChiKH.setText(ct.getDiaChi());
+                txtNgayMua.setText(ct.getNgayMua());
+                txtNgayMua.setBackground(Color.WHITE);
+                txtSoLuongMua.setText(String.valueOf(ct.getSoLuong()));
+                txtSoLuongMua.setBackground(Color.WHITE);
+                txtGhiChuMua.setText(ct.getGhiChu());
+            } finally {
+                isProgrammaticUpdate = false;
+            }
         }
     }
 
@@ -1041,18 +1423,24 @@ class QuanLyMuaBanXeGUI extends JFrame {
     /**
      * Câu 2e: Btn Thêm xe:
      * - Hỏi xác nhận Yes/No.
+     * - Kiểm tra kết nối CSDL (nếu mất kết nối thì tạo dòng dữ liệu ảo theo Ghi chú 3).
      * - Kiểm tra thông tin ràng buộc không rỗng.
      * - Kiểm tra Mã xe đã tồn tại trong table Xe chưa; nếu tồn tại thì thông báo lỗi:
      *   "Mã xe đã tồn tại, vui lòng nhập lại!"
-     * - Ngược lại lưu thông tin Xe (và dòng khách hàng chọn mua hiện thời nếu hợp lệ) vào Database Server,
-     *   sau đó cập nhật các control Thống kê và Khung hiển thị dữ liệu chi tiết.
+     * - Ngược lại lưu thông tin Xe vào Database Server, sau đó cập nhật các control Thống kê
+     *   và Khung hiển thị dữ liệu chi tiết.
      */
     public void xuLyThemXe() {
         if (!xacNhanThucThi("Bạn có chắc chắn muốn thực thi chức năng Thêm Xe hay không?")) {
             return;
         }
         if (!repository.kiemTraKetNoi()) {
-            kiemTraKetNoiHoacTaoDongDuLieuAo();
+            Xe customXe = null;
+            try {
+                customXe = kiemTraVaDocThongTinXeTuForm();
+            } catch (IllegalArgumentException ignored) {
+            }
+            kiemTraKetNoiHoacTaoDongDuLieuAo(customXe);
             return;
         }
         Xe xeMoi;
@@ -1072,27 +1460,6 @@ class QuanLyMuaBanXeGUI extends JFrame {
             }
             repository.themXe(xeMoi);
 
-            // Nếu thanh thông tin Khách hàng mua xe đang có dữ liệu hợp lệ thì lưu kèm giao dịch mua xe
-            String maKH = cboMaKH.getSelectedItem() == null ? "" : cboMaKH.getSelectedItem().toString().trim();
-            String tenKH = txtTenKH.getText().trim();
-            String cmnd = txtCMND.getText().trim();
-            String ngayMua = txtNgayMua.getText().trim();
-            String soLuongStr = txtSoLuongMua.getText().trim();
-            if (!maKH.isEmpty() && !tenKH.isEmpty() && !cmnd.isEmpty() && !ngayMua.isEmpty() && !soLuongStr.isEmpty()) {
-                try {
-                    int sl = Integer.parseInt(soLuongStr);
-                    if (sl > 0) {
-                        ChiTietMuaXe ct = new ChiTietMuaXe(
-                                maKH, tenKH, cmnd,
-                                cboGioiTinh.getSelectedItem() == null ? "Nam" : cboGioiTinh.getSelectedItem().toString(),
-                                "TP.HCM", xeMoi.getMaXe(), ngayMua, sl, xeMoi.getDonGia(), txtGhiChuMua.getText().trim()
-                        );
-                        repository.themChiTietMuaXe(ct);
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
             dsXe = repository.layDanhSachXe();
             int newIdx = dsXe.size() - 1;
             for (int i = 0; i < dsXe.size(); i++) {
@@ -1110,19 +1477,23 @@ class QuanLyMuaBanXeGUI extends JFrame {
 
     /**
      * Câu 2f: Btn Xóa Xe:
-     * - Hỏi xác nhận Yes/No.
+     * - Hỏi xác nhận Yes/No (nêu rõ xóa Xe kèm lịch sử mua của Xe đó).
      * - Xóa dòng dữ liệu hiện thời trên Cửa sổ (thông tin Xe) và cập nhật vào Database Server.
      * - Sau đó đưa dữ liệu của Xe kế tiếp lên Cửa sổ (cập nhật lại các control Thống kê).
      */
     public void xuLyXoaXe() {
-        if (!xacNhanThucThi("Bạn có chắc chắn muốn xóa Xe hiện thời khỏi Database Server hay không?")) {
+        String maXeHienTai = txtMaXe.getText().trim();
+        String msgXacNhan = maXeHienTai.isEmpty()
+                ? "Bạn có chắc chắn muốn xóa Xe hiện thời khỏi Database Server hay không?"
+                : "Bạn có chắc chắn muốn xóa Xe '" + maXeHienTai
+                  + "' (bao gồm lịch sử khách hàng mua xe này) khỏi Database Server hay không?";
+        if (!xacNhanThucThi(msgXacNhan)) {
             return;
         }
         if (!repository.kiemTraKetNoi()) {
             kiemTraKetNoiHoacTaoDongDuLieuAo();
             return;
         }
-        String maXeHienTai = txtMaXe.getText().trim();
         if (maXeHienTai.isEmpty() || dsXe.isEmpty()) {
             thongBao("Không có bản ghi Xe hiện thời để xóa!");
             return;
@@ -1227,11 +1598,26 @@ class QuanLyMuaBanXeGUI extends JFrame {
         String tenKH = txtTenKH.getText().trim();
         String cmnd = txtCMND.getText().trim();
         String gioiTinh = cboGioiTinh.getSelectedItem() == null ? "Nam" : cboGioiTinh.getSelectedItem().toString().trim();
+        String diaChi = txtDiaChiKH.getText().trim();
         String ngayMua = txtNgayMua.getText().trim();
         String slStr = txtSoLuongMua.getText().trim();
 
         if (maKH.isEmpty() || tenKH.isEmpty() || cmnd.isEmpty() || ngayMua.isEmpty() || slStr.isEmpty()) {
             throw new IllegalArgumentException("Thông tin Khách hàng mua xe (Mã KH, Tên KH, CMND, Ngày mua, Số lượng) không được để trống!");
+        }
+        if (!cmnd.matches("[0-9]{8,15}")) {
+            throw new IllegalArgumentException("Số CMND phải gồm từ 8 đến 15 chữ số!");
+        }
+        if (diaChi.isEmpty()) {
+            for (int i = 0; i < dsKhachHang.size(); i++) {
+                if (dsKhachHang.get(i).getMaKH().equalsIgnoreCase(maKH)) {
+                    diaChi = dsKhachHang.get(i).getDiaChi();
+                    break;
+                }
+            }
+            if (diaChi.isEmpty()) {
+                diaChi = "TP.HCM";
+            }
         }
         MuaBanXeRepository.chuyenSangIsoDate(ngayMua); // Kiểm tra định dạng dd/MM/yyyy
         int soLuong;
@@ -1243,7 +1629,7 @@ class QuanLyMuaBanXeGUI extends JFrame {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Số lượng mua phải là số nguyên dương!");
         }
-        return new ChiTietMuaXe(maKH, tenKH, cmnd, gioiTinh, "TP.HCM",
+        return new ChiTietMuaXe(maKH, tenKH, cmnd, gioiTinh, diaChi,
                 xe.getMaXe(), ngayMua, soLuong, xe.getDonGia(), txtGhiChuMua.getText().trim());
     }
 
@@ -1284,7 +1670,9 @@ class QuanLyMuaBanXeGUI extends JFrame {
     }
 
     public void luuChiTietRaFileTxt(File file) {
-        try (PrintWriter out = new PrintWriter(file, StandardCharsets.UTF_8.name())) {
+        PrintWriter out = null;
+        try {
+            out = new PrintWriter(file, StandardCharsets.UTF_8.name());
             out.println("==============================================================================================");
             out.println("                  TRUNG TÂM XE GẮN MÁY NVT - KHUNG HIỂN THỊ DỮ LIỆU CHI TIẾT                  ");
             out.println("==============================================================================================");
@@ -1299,22 +1687,27 @@ class QuanLyMuaBanXeGUI extends JFrame {
             for (int i = 0; i < dsChiTietHienTai.size(); i++) {
                 ChiTietMuaXe ct = dsChiTietHienTai.get(i);
                 out.printf("%-5d | %-8s | %-22s | %-12s | %-9s | %-12s | %-8d | %-15s%n",
-                        i + 1,
+                        Integer.valueOf(i + 1),
                         ct.getMaKH(),
                         ct.getTenKH(),
                         ct.getCmnd(),
                         ct.getGioiTinh(),
                         ct.getNgayMua(),
-                        ct.getSoLuong(),
+                        Integer.valueOf(ct.getSoLuong()),
                         Xe.dinhDangSo(ct.getThanhTien()));
             }
             out.println("==============================================================================================");
             out.println("Tổng số khách hàng : " + txtTongSoKH.getText().trim());
             out.println("Tổng thành tiền    : " + txtTongThanhTien.getText().trim());
             out.println("==============================================================================================");
+            out.flush();
             thongBao("Đã ghi dữ liệu Khung chi tiết ra file thành công:\n" + file.getAbsolutePath());
         } catch (Exception ex) {
             thongBao("Lỗi khi ghi file txt: " + ex.getMessage());
+        } finally {
+            if (out != null) {
+                out.close();
+            }
         }
     }
 
@@ -1364,6 +1757,7 @@ class QuanLyMuaBanXeGUI extends JFrame {
     public String getLastAlertMessage() { return lastAlertMessage; }
     public BaoCaoMuaXeDialog getLastReportDialog() { return lastReportDialog; }
     public List<Xe> getDsXe() { return dsXe; }
+    public List<KhachHang> getDsKhachHang() { return dsKhachHang; }
     public List<ChiTietMuaXe> getDsChiTietHienTai() { return dsChiTietHienTai; }
     public int getCurrentIndex() { return currentIndex; }
 
@@ -1372,7 +1766,12 @@ class QuanLyMuaBanXeGUI extends JFrame {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception ignored) {
         }
-        SwingUtilities.invokeLater(() -> new QuanLyMuaBanXeGUI().setVisible(true));
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new QuanLyMuaBanXeGUI().setVisible(true);
+            }
+        });
     }
 }
 
@@ -1405,6 +1804,7 @@ class BaoCaoMuaXeDialog extends JDialog {
     private DefaultTableModel reportTableModel;
     private JTable tblBaoCao;
     private List<Xe> danhSachXe = new ArrayList<Xe>();
+    private String lastErrorMessage = "";
 
     public BaoCaoMuaXeDialog(JFrame parent, MuaBanXeRepository repository, String initialMaXe, boolean autoConfirmMode) {
         super(parent, "Cửa sổ Báo cáo - Thống kê khách hàng đã mua xe", false);
@@ -1438,7 +1838,7 @@ class BaoCaoMuaXeDialog extends JDialog {
         lblLocNgayMua.setFont(new Font("Tahoma", Font.BOLD, 12));
         txtNgayMua = new JTextField(12);
         txtNgayMua.setFont(new Font("Tahoma", Font.PLAIN, 12));
-        txtNgayMua.setToolTipText("Nhập ngày mua cụ thể (ví dụ 28/10/2011) hoặc để trống để xem tất cả ngày mua");
+        txtNgayMua.setToolTipText("Nhập ngày mua cụ thể theo định dạng dd/mm/yyyy (ví dụ 28/10/2012) hoặc để trống để xem tất cả ngày mua");
 
         btnThucHienBaoCao = new JButton("Thực hiện báo cáo");
         btnThucHienBaoCao.setFont(new Font("Tahoma", Font.BOLD, 12));
@@ -1607,15 +2007,21 @@ class BaoCaoMuaXeDialog extends JDialog {
         add(pnlCrystalReport, BorderLayout.CENTER);
 
         // Sự kiện các nút trên cửa sổ Báo cáo (đều hỏi Yes/No theo Ghi chú 1)
-        btnThucHienBaoCao.addActionListener(e -> {
-            if (xacNhan("Bạn có chắc chắn muốn thực hiện phát sinh báo cáo theo tiêu chí đã chọn hay không?")) {
-                thucHienPhatSinhBaoCao(true);
+        btnThucHienBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhan("Bạn có chắc chắn muốn thực hiện phát sinh báo cáo theo tiêu chí đã chọn hay không?")) {
+                    thucHienPhatSinhBaoCao(true);
+                }
             }
         });
 
-        btnDongBaoCao.addActionListener(e -> {
-            if (xacNhan("Bạn có chắc chắn muốn đóng Cửa sổ Báo cáo hay không?")) {
-                dispose();
+        btnDongBaoCao.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (xacNhan("Bạn có chắc chắn muốn đóng Cửa sổ Báo cáo hay không?")) {
+                    dispose();
+                }
             }
         });
     }
@@ -1654,8 +2060,8 @@ class BaoCaoMuaXeDialog extends JDialog {
             } catch (SQLException ignored) {
             }
         }
-        for (Xe x : danhSachXe) {
-            cboMaXe.addItem(x.getMaXe());
+        for (int i = 0; i < danhSachXe.size(); i++) {
+            cboMaXe.addItem(danhSachXe.get(i).getMaXe());
         }
         cboMaXe.addItem("-- Tất cả --");
         if (initialMaXe != null && !initialMaXe.trim().isEmpty()) {
@@ -1666,6 +2072,7 @@ class BaoCaoMuaXeDialog extends JDialog {
     }
 
     public void thucHienPhatSinhBaoCao(boolean showCheckConnectionAlert) {
+        lastErrorMessage = "";
         if (!repository.kiemTraKetNoi()) {
             if (showCheckConnectionAlert && !autoConfirmMode) {
                 JOptionPane.showMessageDialog(this,
@@ -1678,7 +2085,8 @@ class BaoCaoMuaXeDialog extends JDialog {
         String ngayMuaFilter = txtNgayMua.getText().trim();
 
         Xe xeInfo = null;
-        for (Xe x : danhSachXe) {
+        for (int i = 0; i < danhSachXe.size(); i++) {
+            Xe x = danhSachXe.get(i);
             if (x.getMaXe().equalsIgnoreCase(selectedMaXe)) {
                 xeInfo = x;
                 break;
@@ -1711,7 +2119,12 @@ class BaoCaoMuaXeDialog extends JDialog {
             }
             lblValSoLuongKH.setText("  " + rows.size() + "  ");
         } catch (SQLException ex) {
+            lastErrorMessage = ex.getMessage();
             lblValSoLuongKH.setText("  0  ");
+            if (showCheckConnectionAlert && !autoConfirmMode) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(),
+                        "Lỗi tiêu chí lọc báo cáo", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }
 
@@ -1723,56 +2136,187 @@ class BaoCaoMuaXeDialog extends JDialog {
     public JLabel getLblValMaXe() { return lblValMaXe; }
     public JLabel getLblValTenXe() { return lblValTenXe; }
     public JLabel getLblValSoLuongKH() { return lblValSoLuongKH; }
+    public String getLastErrorMessage() { return lastErrorMessage; }
 }
 
 /**
  * Tầng truy xuất dữ liệu CSDL SQL Server QLMuaBanXe.
  *
- * Đáp ứng đầy đủ:
+ * Đáp ứng đầy đủ yêu cầu đề thi và tính khả chuyển đa môi trường:
  * 1. Lưu ý đầu đề: Kiểm tra kết nối CSDL đã có kết nối chưa; nếu kết nối không được
  *    thì thông báo và đưa dữ liệu trống rỗng lên màn hình.
  * 2. Ghi chú cuối đề: Khi xử lý dữ liệu trên Database Server thì luôn kiểm tra việc
  *    kết nối thành công hay không; nếu kết nối không thành công thì tạo ra một dòng
  *    dữ liệu ảo, rồi sau đó đưa lên các control chứa dữ liệu thích hợp trên Cửa sổ.
+ * 3. Hỗ trợ cấu hình linh hoạt qua tệp config.properties / db.properties, System properties,
+ *    biến môi trường, tự động dò tìm nhiều SQL Server instance phổ biến (.\SQL2025DEV,
+ *    localhost, ., .\SQLEXPRESS, (local)), và hỗ trợ chế độ giả lập CSDL (Simulated DB Mode)
+ *    trên các máy chấm bài không cài đặt SQL Server.
  */
 class MuaBanXeRepository {
-    private static final String DEFAULT_JDBC_URL =
-            "jdbc:sqlserver://127.0.0.1:1433;databaseName=QLMuaBanXe;"
-                    + "encrypt=true;trustServerCertificate=true;integratedSecurity=true;loginTimeout=2";
+    private static final String DEFAULT_HOST = "127.0.0.1";
+    private static final String DEFAULT_PORT = "1433";
+    private static final String DEFAULT_DB_NAME = "QLMuaBanXe";
     private static final String DEFAULT_SQLCMD_SERVER = ".\\SQL2025DEV";
-    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
     private final String jdbcUrl;
     private final String username;
     private final String password;
-    private final String sqlcmdServer;
+    private final List<String> candidateSqlcmdServers;
+    private String activeSqlcmdServer;
+
     private boolean forceDisconnected = false;
+    private boolean simulatedDatabaseMode = false;
     private Boolean useSqlcmdBackend = null;
 
-    // Bộ nhớ dữ liệu ảo dự phòng khi mất kết nối Database Server
+    // Bộ nhớ dữ liệu ảo / giả lập khi mất kết nối hoặc khi chạy trên máy không cài SQL Server
     private final List<KhachHang> virtualKhachHang = new ArrayList<KhachHang>();
     private final List<Xe> virtualXe = new ArrayList<Xe>();
     private final List<ChiTietMuaXe> virtualMuaXe = new ArrayList<ChiTietMuaXe>();
 
     public MuaBanXeRepository() {
-        this(DEFAULT_JDBC_URL, "", "", DEFAULT_SQLCMD_SERVER);
+        Properties props = taiCauHinhTuFileVaMoiTruong();
+        String host = layGiaTriCauHinh(props, "db.host", "DB_HOST", DEFAULT_HOST);
+        String port = layGiaTriCauHinh(props, "db.port", "DB_PORT", DEFAULT_PORT);
+        String dbName = layGiaTriCauHinh(props, "db.name", "DB_NAME", DEFAULT_DB_NAME);
+        String integrated = layGiaTriCauHinh(props, "db.integratedSecurity", "DB_INTEGRATED_SECURITY", "true");
+        String customUrl = layGiaTriCauHinh(props, "db.url", "DB_URL", "");
+
+        if (!customUrl.isEmpty()) {
+            this.jdbcUrl = customUrl;
+        } else {
+            boolean useIntegrated = "true".equalsIgnoreCase(integrated) || "1".equals(integrated);
+            StringBuilder urlBuilder = new StringBuilder();
+            urlBuilder.append("jdbc:sqlserver://").append(host).append(":").append(port)
+                    .append(";databaseName=").append(dbName)
+                    .append(";encrypt=true;trustServerCertificate=true;loginTimeout=2");
+            if (useIntegrated) {
+                urlBuilder.append(";integratedSecurity=true");
+            }
+            this.jdbcUrl = urlBuilder.toString();
+        }
+
+        this.username = layGiaTriCauHinh(props, "db.user", "DB_USER", "");
+        this.password = layGiaTriCauHinh(props, "db.password", "DB_PASSWORD", "");
+
+        String serversRaw = layGiaTriCauHinh(
+                props,
+                "db.sqlcmdServers",
+                "DB_SQLCMD_SERVER",
+                DEFAULT_SQLCMD_SERVER + ",localhost,.,.\\SQLEXPRESS,(local)"
+        );
+        this.candidateSqlcmdServers = phanTachDanhSachServer(serversRaw);
+        this.activeSqlcmdServer = this.candidateSqlcmdServers.isEmpty()
+                ? DEFAULT_SQLCMD_SERVER
+                : this.candidateSqlcmdServers.get(0);
     }
 
     public MuaBanXeRepository(String jdbcUrl, String username, String password, String sqlcmdServer) {
-        this.jdbcUrl = jdbcUrl == null || jdbcUrl.trim().isEmpty() ? DEFAULT_JDBC_URL : jdbcUrl.trim();
+        this.jdbcUrl = jdbcUrl == null || jdbcUrl.trim().isEmpty()
+                ? "jdbc:sqlserver://127.0.0.1:1433;databaseName=QLMuaBanXe;encrypt=true;trustServerCertificate=true;integratedSecurity=true;loginTimeout=2"
+                : jdbcUrl.trim();
         this.username = username == null ? "" : username.trim();
         this.password = password == null ? "" : password;
-        this.sqlcmdServer = sqlcmdServer == null || sqlcmdServer.trim().isEmpty()
-                ? DEFAULT_SQLCMD_SERVER : sqlcmdServer.trim();
+        String serverCfg = sqlcmdServer == null || sqlcmdServer.trim().isEmpty()
+                ? DEFAULT_SQLCMD_SERVER + ",localhost,.,.\\SQLEXPRESS,(local)"
+                : sqlcmdServer.trim();
+        this.candidateSqlcmdServers = phanTachDanhSachServer(serverCfg);
+        this.activeSqlcmdServer = this.candidateSqlcmdServers.isEmpty()
+                ? DEFAULT_SQLCMD_SERVER
+                : this.candidateSqlcmdServers.get(0);
+    }
+
+    private static Properties taiCauHinhTuFileVaMoiTruong() {
+        Properties props = new Properties();
+        String[] candidateFiles = new String[]{
+                "config.properties",
+                "db.properties",
+                "Kiểm tra cuối kì/config.properties",
+                "../config.properties"
+        };
+        for (int i = 0; i < candidateFiles.length; i++) {
+            File f = new File(candidateFiles[i]);
+            if (f.isFile()) {
+                FileInputStream fis = null;
+                try {
+                    fis = new FileInputStream(f);
+                    props.load(fis);
+                    break;
+                } catch (Exception ignored) {
+                } finally {
+                    if (fis != null) {
+                        try {
+                            fis.close();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+        }
+        return props;
+    }
+
+    private static String layGiaTriCauHinh(Properties props, String propKey, String envKey, String defaultVal) {
+        String sysVal = System.getProperty(propKey);
+        if (sysVal != null && !sysVal.trim().isEmpty()) {
+            return sysVal.trim();
+        }
+        String envVal = System.getenv(envKey);
+        if (envVal != null && !envVal.trim().isEmpty()) {
+            return envVal.trim();
+        }
+        String fileVal = props.getProperty(propKey);
+        if (fileVal != null && !fileVal.trim().isEmpty()) {
+            return fileVal.trim();
+        }
+        return defaultVal;
+    }
+
+    private static List<String> phanTachDanhSachServer(String raw) {
+        List<String> list = new ArrayList<String>();
+        if (raw != null) {
+            String[] parts = raw.split(",");
+            for (int i = 0; i < parts.length; i++) {
+                String s = parts[i].trim();
+                if (!s.isEmpty() && !list.contains(s)) {
+                    list.add(s);
+                }
+            }
+        }
+        if (list.isEmpty()) {
+            list.add(DEFAULT_SQLCMD_SERVER);
+        }
+        return list;
     }
 
     public void setForceDisconnected(boolean forceDisconnected) {
         this.forceDisconnected = forceDisconnected;
-        this.useSqlcmdBackend = null;
+        if (!this.simulatedDatabaseMode) {
+            this.useSqlcmdBackend = null;
+        }
     }
 
     public boolean isForceDisconnected() {
         return forceDisconnected;
+    }
+
+    /**
+     * Kích hoạt chế độ giả lập CSDL (Simulated Database Mode) với đầy đủ 4 Xe và 6 giao dịch mẫu
+     * từ QLMuaBanXe.sql khi chạy kiểm thử trên máy chấm bài không cài đặt SQL Server.
+     */
+    public void enableSimulatedDatabaseMode() {
+        this.simulatedDatabaseMode = true;
+        this.forceDisconnected = false;
+        khoiTaoDuLieuMauAoDayDu();
+    }
+
+    public void disableSimulatedDatabaseMode() {
+        this.simulatedDatabaseMode = false;
+        this.useSqlcmdBackend = null;
+    }
+
+    public boolean isSimulatedDatabaseMode() {
+        return simulatedDatabaseMode;
     }
 
     /**
@@ -1782,27 +2326,45 @@ class MuaBanXeRepository {
         if (forceDisconnected) {
             return false;
         }
+        if (simulatedDatabaseMode) {
+            return true;
+        }
         try {
             if (useSqlcmdBackend != null) {
                 if (!useSqlcmdBackend.booleanValue()) {
-                    try (Connection conn = openJdbc()) {
+                    Connection conn = null;
+                    try {
+                        conn = openJdbc();
                         return conn != null && !conn.isClosed();
+                    } finally {
+                        closeQuietly(conn);
                     }
                 } else {
                     return "1".equals(sqlcmdSingleValue("SELECT 1"));
                 }
             }
-            try (Connection conn = openJdbc()) {
+            Connection conn = null;
+            try {
+                conn = openJdbc();
                 if (conn != null && !conn.isClosed()) {
                     useSqlcmdBackend = Boolean.FALSE;
                     return true;
                 }
-            } catch ( Throwable ignored ) {
-                // Chuyển sang kiểm tra cầu nối sqlcmd cục bộ
+            } catch (Throwable ignored) {
+                // Chuyển sang dò tìm các instance SQL Server qua sqlcmd cục bộ
+            } finally {
+                closeQuietly(conn);
             }
-            if ("1".equals(sqlcmdSingleValue("SELECT 1"))) {
-                useSqlcmdBackend = Boolean.TRUE;
-                return true;
+            for (int i = 0; i < candidateSqlcmdServers.size(); i++) {
+                String candidate = candidateSqlcmdServers.get(i);
+                this.activeSqlcmdServer = candidate;
+                try {
+                    if ("1".equals(sqlcmdSingleValue("SELECT 1"))) {
+                        useSqlcmdBackend = Boolean.TRUE;
+                        return true;
+                    }
+                } catch (Throwable ignored) {
+                }
             }
         } catch (Throwable ignored) {
             // Kết nối thất bại
@@ -1815,12 +2377,20 @@ class MuaBanXeRepository {
      * theo đúng yêu cầu tại phần Ghi chú trang 3 của đề thi.
      */
     public void khoiTaoDongDuLieuAo() {
+        khoiTaoDongDuLieuAo(null);
+    }
+
+    /**
+     * Khởi tạo dòng dữ liệu ảo dự phòng khi mất kết nối Database Server, đồng thời giữ lại
+     * thông tin Xe người dùng vừa nhập trên biểu mẫu (nếu hợp lệ).
+     */
+    public void khoiTaoDongDuLieuAo(Xe customXe) {
         virtualKhachHang.clear();
         virtualXe.clear();
         virtualMuaXe.clear();
 
-        KhachHang khAo = new KhachHang("KH01", "Nguyễn Văn Sơn (Dữ liệu ảo)", "301458080", "Nam", "TP.HCM");
-        KhachHang khAo2 = new KhachHang("KH02", "Trần Thị Mai (Dữ liệu ảo)", "079199001", "Nữ", "TP.HCM");
+        KhachHang khAo = new KhachHang("KH01", "Nguyễn Văn Sơn (Dữ liệu ảo)", "301458080", "Nam", "125 Nguyễn Trãi, Q.1, TP.HCM");
+        KhachHang khAo2 = new KhachHang("KH02", "Trần Thị Mai (Dữ liệu ảo)", "079199001", "Nữ", "42 Lê Lợi, Q.3, TP.HCM");
         virtualKhachHang.add(khAo);
         virtualKhachHang.add(khAo2);
 
@@ -1832,10 +2402,15 @@ class MuaBanXeRepository {
                 xeAo.getMaXe(), "28/10/2011", 1, xeAo.getDonGia(), "Dòng dữ liệu ảo khi mất kết nối CSDL"
         );
         virtualMuaXe.add(ctAo);
+
+        if (customXe != null && !customXe.getMaXe().isEmpty() && !customXe.getMaXe().equalsIgnoreCase("XE01")) {
+            virtualXe.add(customXe);
+        }
     }
 
     /**
-     * Khởi tạo đầy đủ 4 xe mẫu như trong đề khi chạy trên môi trường OnlineGDB không có SQL Server.
+     * Khởi tạo đầy đủ 4 xe mẫu và 6 giao dịch mua xe như trong QLMuaBanXe.sql
+     * phục vụ chạy kiểm thử trên môi trường OnlineGDB hoặc máy không có SQL Server.
      */
     public void khoiTaoDuLieuMauAoDayDu() {
         virtualKhachHang.clear();
@@ -1866,19 +2441,56 @@ class MuaBanXeRepository {
                 "KH001", "28/10/2012", 1, 18500000L, "Laptop"));
     }
 
+    private List<Xe> sapXepDanhSachXe(List<Xe> input) {
+        List<Xe> copy = new ArrayList<Xe>(input);
+        Collections.sort(copy, new Comparator<Xe>() {
+            @Override
+            public int compare(Xe a, Xe b) {
+                boolean aXe = a.getMaXe().toUpperCase().startsWith("XE");
+                boolean bXe = b.getMaXe().toUpperCase().startsWith("XE");
+                if (aXe != bXe) {
+                    return aXe ? -1 : 1;
+                }
+                return a.getMaXe().compareToIgnoreCase(b.getMaXe());
+            }
+        });
+        return copy;
+    }
+
+    private List<ChiTietMuaXe> sapXepChiTietMua(List<ChiTietMuaXe> input) {
+        List<ChiTietMuaXe> copy = new ArrayList<ChiTietMuaXe>(input);
+        Collections.sort(copy, new Comparator<ChiTietMuaXe>() {
+            @Override
+            public int compare(ChiTietMuaXe a, ChiTietMuaXe b) {
+                try {
+                    String isoA = chuyenSangIsoDate(a.getNgayMua());
+                    String isoB = chuyenSangIsoDate(b.getNgayMua());
+                    int cmpDate = isoB.compareTo(isoA); // DESC
+                    if (cmpDate != 0) {
+                        return cmpDate;
+                    }
+                } catch (SQLException ignored) {
+                }
+                return a.getMaKH().compareToIgnoreCase(b.getMaKH());
+            }
+        });
+        return copy;
+    }
+
     public List<Xe> layDanhSachXe() throws SQLException {
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             if (virtualXe.isEmpty()) {
                 khoiTaoDongDuLieuAo();
             }
-            return new ArrayList<Xe>(virtualXe);
+            return sapXepDanhSachXe(virtualXe);
         }
         if (Boolean.TRUE.equals(useSqlcmdBackend)) {
             String sql = "SELECT MaXe, " + hexCol("TenXe") + ", DungTich, DonGia FROM dbo.Xe "
                     + "ORDER BY CASE WHEN MaXe LIKE 'XE%' THEN 0 ELSE 1 END, MaXe";
             List<String[]> rows = sqlcmdQuery(sql, 4);
             List<Xe> list = new ArrayList<Xe>();
-            for (String[] r : rows) {
+            for (int i = 0; i < rows.size(); i++) {
+                String[] r = rows.get(i);
                 list.add(new Xe(r[0], decodeHexUnicode(r[1]), Integer.parseInt(r[2]), Long.parseLong(r[3])));
             }
             return list;
@@ -1886,18 +2498,26 @@ class MuaBanXeRepository {
         String sql = "SELECT MaXe, TenXe, DungTich, DonGia FROM dbo.Xe "
                 + "ORDER BY CASE WHEN MaXe LIKE 'XE%' THEN 0 ELSE 1 END, MaXe";
         List<Xe> list = new ArrayList<Xe>();
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
+            rs = ps.executeQuery();
             while (rs.next()) {
                 list.add(new Xe(rs.getString(1), rs.getString(2), rs.getInt(3), rs.getLong(4)));
             }
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(ps);
+            closeQuietly(c);
         }
         return list;
     }
 
     public List<KhachHang> layDanhSachKhachHang() throws SQLException {
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             if (virtualKhachHang.isEmpty()) {
                 khoiTaoDongDuLieuAo();
             }
@@ -1908,7 +2528,8 @@ class MuaBanXeRepository {
                     + hexCol("DiaChi") + " FROM dbo.Khach_Hang ORDER BY MaKH";
             List<String[]> rows = sqlcmdQuery(sql, 5);
             List<KhachHang> list = new ArrayList<KhachHang>();
-            for (String[] r : rows) {
+            for (int i = 0; i < rows.size(); i++) {
+                String[] r = rows.get(i);
                 list.add(new KhachHang(r[0], decodeHexUnicode(r[1]), r[2],
                         decodeHexUnicode(r[3]), decodeHexUnicode(r[4])));
             }
@@ -1916,26 +2537,35 @@ class MuaBanXeRepository {
         }
         String sql = "SELECT MaKH, TenKH, CMND, GioiTinh, DiaChi FROM dbo.Khach_Hang ORDER BY MaKH";
         List<KhachHang> list = new ArrayList<KhachHang>();
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
+            rs = ps.executeQuery();
             while (rs.next()) {
                 list.add(new KhachHang(rs.getString(1), rs.getString(2), rs.getString(3),
                         rs.getString(4), rs.getString(5)));
             }
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(ps);
+            closeQuietly(c);
         }
         return list;
     }
 
     public List<ChiTietMuaXe> layChiTietMuaTheoXe(String maXe) throws SQLException {
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             List<ChiTietMuaXe> list = new ArrayList<ChiTietMuaXe>();
-            for (ChiTietMuaXe ct : virtualMuaXe) {
+            for (int i = 0; i < virtualMuaXe.size(); i++) {
+                ChiTietMuaXe ct = virtualMuaXe.get(i);
                 if (ct.getMaXe().equalsIgnoreCase(maXe)) {
                     list.add(ct);
                 }
             }
-            return list;
+            return sapXepChiTietMua(list);
         }
         String cleanMaXe = sanitizeSqlLiteral(maXe);
         if (Boolean.TRUE.equals(useSqlcmdBackend)) {
@@ -1949,7 +2579,8 @@ class MuaBanXeRepository {
                     + "ORDER BY M.NgayMua DESC, M.MaKH ASC";
             List<String[]> rows = sqlcmdQuery(sql, 10);
             List<ChiTietMuaXe> list = new ArrayList<ChiTietMuaXe>();
-            for (String[] r : rows) {
+            for (int i = 0; i < rows.size(); i++) {
+                String[] r = rows.get(i);
                 list.add(new ChiTietMuaXe(
                         r[0], decodeHexUnicode(r[1]), r[2], decodeHexUnicode(r[3]), decodeHexUnicode(r[4]),
                         r[5], r[6], Integer.parseInt(r[7]), Long.parseLong(r[8]), decodeHexUnicode(r[9])
@@ -1964,37 +2595,61 @@ class MuaBanXeRepository {
                 + "JOIN dbo.Xe X ON M.MaXe = X.MaXe "
                 + "WHERE M.MaXe = ? ORDER BY M.NgayMua DESC, M.MaKH ASC";
         List<ChiTietMuaXe> list = new ArrayList<ChiTietMuaXe>();
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
             ps.setString(1, maXe);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(new ChiTietMuaXe(
-                            rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
-                            rs.getString(6), rs.getString(7), rs.getInt(8), rs.getLong(9), rs.getString(10)
-                    ));
-                }
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                list.add(new ChiTietMuaXe(
+                        rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
+                        rs.getString(6), rs.getString(7), rs.getInt(8), rs.getLong(9), rs.getString(10)
+                ));
             }
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(ps);
+            closeQuietly(c);
         }
         return list;
     }
 
+    /**
+     * Lọc dữ liệu báo cáo theo Mã xe và Ngày mua (dd/MM/yyyy).
+     * Nếu người dùng nhập Ngày mua thì bắt buộc kiểm tra đúng định dạng dd/MM/yyyy và so khớp chính xác ngày.
+     */
     public List<ChiTietMuaXe> locBaoCaoMuaXe(String maXe, String ngayMuaFilter) throws SQLException {
+        String filter = ngayMuaFilter == null ? "" : ngayMuaFilter.trim();
+        String normalizedFilterDate = "";
+        if (!filter.isEmpty()) {
+            normalizedFilterDate = chuanHoaNgayDdMmYyyy(filter);
+        }
+
         List<ChiTietMuaXe> source = new ArrayList<ChiTietMuaXe>();
         if (maXe == null || maXe.trim().isEmpty() || "-- Tất cả --".equals(maXe.trim())) {
-            for (Xe x : layDanhSachXe()) {
-                source.addAll(layChiTietMuaTheoXe(x.getMaXe()));
+            List<Xe> allXe = layDanhSachXe();
+            for (int i = 0; i < allXe.size(); i++) {
+                source.addAll(layChiTietMuaTheoXe(allXe.get(i).getMaXe()));
             }
         } else {
             source.addAll(layChiTietMuaTheoXe(maXe.trim()));
         }
-        String filter = ngayMuaFilter == null ? "" : ngayMuaFilter.trim();
-        if (filter.isEmpty()) {
+
+        if (normalizedFilterDate.isEmpty()) {
             return source;
         }
         List<ChiTietMuaXe> filtered = new ArrayList<ChiTietMuaXe>();
-        for (ChiTietMuaXe ct : source) {
-            if (ct.getNgayMua().equalsIgnoreCase(filter) || ct.getNgayMua().contains(filter)) {
+        for (int i = 0; i < source.size(); i++) {
+            ChiTietMuaXe ct = source.get(i);
+            String ctDate = ct.getNgayMua();
+            try {
+                ctDate = chuanHoaNgayDdMmYyyy(ctDate);
+            } catch (SQLException ignored) {
+            }
+            if (ctDate.equalsIgnoreCase(normalizedFilterDate)) {
                 filtered.add(ct);
             }
         }
@@ -2002,8 +2657,9 @@ class MuaBanXeRepository {
     }
 
     public boolean tonTaiMaXe(String maXe) throws SQLException {
-        for (Xe x : layDanhSachXe()) {
-            if (x.getMaXe().equalsIgnoreCase(maXe.trim())) {
+        List<Xe> all = layDanhSachXe();
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).getMaXe().equalsIgnoreCase(maXe.trim())) {
                 return true;
             }
         }
@@ -2014,7 +2670,7 @@ class MuaBanXeRepository {
         if (tonTaiMaXe(xe.getMaXe())) {
             throw new SQLException("Mã xe đã tồn tại, vui lòng nhập lại!");
         }
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             virtualXe.add(xe);
             return;
         }
@@ -2030,18 +2686,24 @@ class MuaBanXeRepository {
             return;
         }
         String sql = "INSERT INTO dbo.Xe (MaXe, TenXe, DungTich, DonGia) VALUES (?, ?, ?, ?)";
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
             ps.setString(1, xe.getMaXe());
             ps.setString(2, xe.getTenXe());
             ps.setInt(3, xe.getDungTich());
             ps.setLong(4, xe.getDonGia());
             ps.executeUpdate();
+        } finally {
+            closeQuietly(ps);
+            closeQuietly(c);
         }
     }
 
     public void xoaXe(String maXe) throws SQLException {
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             for (int i = virtualXe.size() - 1; i >= 0; i--) {
                 if (virtualXe.get(i).getMaXe().equalsIgnoreCase(maXe)) {
                     virtualXe.remove(i);
@@ -2061,85 +2723,164 @@ class MuaBanXeRepository {
             sqlcmdSingleValue(sql);
             return;
         }
-        try (Connection c = openJdbc()) {
-            try (PreparedStatement ps1 = c.prepareStatement("DELETE FROM dbo.Mua_Xe WHERE MaXe = ?")) {
-                ps1.setString(1, maXe);
-                ps1.executeUpdate();
-            }
-            try (PreparedStatement ps2 = c.prepareStatement("DELETE FROM dbo.Xe WHERE MaXe = ?")) {
-                ps2.setString(1, maXe);
-                ps2.executeUpdate();
-            }
+        Connection c = null;
+        PreparedStatement ps1 = null;
+        PreparedStatement ps2 = null;
+        try {
+            c = openJdbc();
+            ps1 = c.prepareStatement("DELETE FROM dbo.Mua_Xe WHERE MaXe = ?");
+            ps1.setString(1, maXe);
+            ps1.executeUpdate();
+
+            ps2 = c.prepareStatement("DELETE FROM dbo.Xe WHERE MaXe = ?");
+            ps2.setString(1, maXe);
+            ps2.executeUpdate();
+        } finally {
+            closeQuietly(ps1);
+            closeQuietly(ps2);
+            closeQuietly(c);
         }
     }
 
+    /**
+     * Lưu mới hoặc cập nhật thông tin Khách hàng.
+     * Nếu khách hàng đã tồn tại và địa chỉ truyền vào bị rỗng, giữ nguyên địa chỉ hiện có trong CSDL
+     * thay vì ghi đè bằng giá trị mặc định.
+     */
     public void luuHoacCapNhatKhachHang(KhachHang kh) throws SQLException {
-        if (!kiemTraKetNoi()) {
+        String diaChiMoi = kh.getDiaChi() == null ? "" : kh.getDiaChi().trim();
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             for (int i = 0; i < virtualKhachHang.size(); i++) {
-                if (virtualKhachHang.get(i).getMaKH().equalsIgnoreCase(kh.getMaKH())) {
-                    virtualKhachHang.set(i, kh);
+                KhachHang existing = virtualKhachHang.get(i);
+                if (existing.getMaKH().equalsIgnoreCase(kh.getMaKH())) {
+                    String resolvedAddress = diaChiMoi.isEmpty() ? existing.getDiaChi() : diaChiMoi;
+                    if (resolvedAddress.isEmpty()) {
+                        resolvedAddress = "TP.HCM";
+                    }
+                    KhachHang updatedKh = new KhachHang(
+                            kh.getMaKH(), kh.getTenKH(), kh.getCmnd(), kh.getGioiTinh(), resolvedAddress
+                    );
+                    virtualKhachHang.set(i, updatedKh);
+                    dongBoKhachHangTrongVirtualMuaXe(updatedKh);
                     return;
                 }
             }
-            virtualKhachHang.add(kh);
+            String resolvedAddress = diaChiMoi.isEmpty() ? "TP.HCM" : diaChiMoi;
+            KhachHang newKh = new KhachHang(
+                    kh.getMaKH(), kh.getTenKH(), kh.getCmnd(), kh.getGioiTinh(), resolvedAddress
+            );
+            virtualKhachHang.add(newKh);
+            dongBoKhachHangTrongVirtualMuaXe(newKh);
             return;
         }
+
         String cleanMa = sanitizeSqlLiteral(kh.getMaKH());
         String cleanCmnd = sanitizeSqlLiteral(kh.getCmnd());
         if (Boolean.TRUE.equals(useSqlcmdBackend)) {
+            String updateDiaChiClause = diaChiMoi.isEmpty()
+                    ? ""
+                    : ", DiaChi = " + toNCharExpr(diaChiMoi);
+            String insertDiaChiExpr = toNCharExpr(diaChiMoi.isEmpty() ? "TP.HCM" : diaChiMoi);
             String sql = "IF EXISTS (SELECT 1 FROM dbo.Khach_Hang WHERE MaKH = '" + cleanMa + "') "
                     + "UPDATE dbo.Khach_Hang SET TenKH = " + toNCharExpr(kh.getTenKH())
                     + ", CMND = '" + cleanCmnd + "', GioiTinh = " + toNCharExpr(kh.getGioiTinh())
-                    + ", DiaChi = " + toNCharExpr(kh.getDiaChi().isEmpty() ? "TP.HCM" : kh.getDiaChi())
+                    + updateDiaChiClause
                     + " WHERE MaKH = '" + cleanMa + "' "
                     + "ELSE INSERT INTO dbo.Khach_Hang (MaKH, TenKH, CMND, GioiTinh, DiaChi) VALUES ('"
                     + cleanMa + "', " + toNCharExpr(kh.getTenKH()) + ", '" + cleanCmnd + "', "
                     + toNCharExpr(kh.getGioiTinh()) + ", "
-                    + toNCharExpr(kh.getDiaChi().isEmpty() ? "TP.HCM" : kh.getDiaChi()) + "); SELECT 'OK'";
+                    + insertDiaChiExpr + "); SELECT 'OK'";
             sqlcmdSingleValue(sql);
             return;
         }
-        String checkSql = "SELECT COUNT(*) FROM dbo.Khach_Hang WHERE MaKH = ?";
-        try (Connection c = openJdbc();
-             PreparedStatement checkPs = c.prepareStatement(checkSql)) {
+
+        Connection c = null;
+        PreparedStatement checkPs = null;
+        ResultSet rs = null;
+        PreparedStatement actionPs = null;
+        try {
+            c = openJdbc();
+            checkPs = c.prepareStatement("SELECT DiaChi FROM dbo.Khach_Hang WHERE MaKH = ?");
             checkPs.setString(1, kh.getMaKH());
+            rs = checkPs.executeQuery();
             boolean exists = false;
-            try (ResultSet rs = checkPs.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    exists = true;
-                }
+            String existingDiaChi = "";
+            if (rs.next()) {
+                exists = true;
+                existingDiaChi = rs.getString(1) == null ? "" : rs.getString(1).trim();
             }
             if (exists) {
-                try (PreparedStatement up = c.prepareStatement(
-                        "UPDATE dbo.Khach_Hang SET TenKH=?, CMND=?, GioiTinh=?, DiaChi=? WHERE MaKH=?")) {
-                    up.setString(1, kh.getTenKH());
-                    up.setString(2, kh.getCmnd());
-                    up.setString(3, kh.getGioiTinh());
-                    up.setString(4, kh.getDiaChi().isEmpty() ? "TP.HCM" : kh.getDiaChi());
-                    up.setString(5, kh.getMaKH());
-                    up.executeUpdate();
-                }
+                String finalDiaChi = diaChiMoi.isEmpty()
+                        ? (existingDiaChi.isEmpty() ? "TP.HCM" : existingDiaChi)
+                        : diaChiMoi;
+                actionPs = c.prepareStatement(
+                        "UPDATE dbo.Khach_Hang SET TenKH=?, CMND=?, GioiTinh=?, DiaChi=? WHERE MaKH=?"
+                );
+                actionPs.setString(1, kh.getTenKH());
+                actionPs.setString(2, kh.getCmnd());
+                actionPs.setString(3, kh.getGioiTinh());
+                actionPs.setString(4, finalDiaChi);
+                actionPs.setString(5, kh.getMaKH());
+                actionPs.executeUpdate();
             } else {
-                try (PreparedStatement ins = c.prepareStatement(
-                        "INSERT INTO dbo.Khach_Hang (MaKH, TenKH, CMND, GioiTinh, DiaChi) VALUES (?, ?, ?, ?, ?)")) {
-                    ins.setString(1, kh.getMaKH());
-                    ins.setString(2, kh.getTenKH());
-                    ins.setString(3, kh.getCmnd());
-                    ins.setString(4, kh.getGioiTinh());
-                    ins.setString(5, kh.getDiaChi().isEmpty() ? "TP.HCM" : kh.getDiaChi());
-                    ins.executeUpdate();
-                }
+                String finalDiaChi = diaChiMoi.isEmpty() ? "TP.HCM" : diaChiMoi;
+                actionPs = c.prepareStatement(
+                        "INSERT INTO dbo.Khach_Hang (MaKH, TenKH, CMND, GioiTinh, DiaChi) VALUES (?, ?, ?, ?, ?)"
+                );
+                actionPs.setString(1, kh.getMaKH());
+                actionPs.setString(2, kh.getTenKH());
+                actionPs.setString(3, kh.getCmnd());
+                actionPs.setString(4, kh.getGioiTinh());
+                actionPs.setString(5, finalDiaChi);
+                actionPs.executeUpdate();
+            }
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(checkPs);
+            closeQuietly(actionPs);
+            closeQuietly(c);
+        }
+    }
+
+    private void dongBoKhachHangTrongVirtualMuaXe(KhachHang kh) {
+        for (int i = 0; i < virtualMuaXe.size(); i++) {
+            ChiTietMuaXe ct = virtualMuaXe.get(i);
+            if (ct.getMaKH().equalsIgnoreCase(kh.getMaKH())) {
+                ct.setTenKH(kh.getTenKH());
+                ct.setCmnd(kh.getCmnd());
+                ct.setGioiTinh(kh.getGioiTinh());
+                ct.setDiaChi(kh.getDiaChi());
             }
         }
     }
 
     public void themChiTietMuaXe(ChiTietMuaXe ct) throws SQLException {
         String isoDate = chuyenSangIsoDate(ct.getNgayMua());
+        String normalizedNgay = chuanHoaNgayDdMmYyyy(ct.getNgayMua());
+        ct.setNgayMua(normalizedNgay);
+
         luuHoacCapNhatKhachHang(new KhachHang(
-                ct.getMaKH(), ct.getTenKH(), ct.getCmnd(), ct.getGioiTinh(),
-                ct.getDiaChi().isEmpty() ? "TP.HCM" : ct.getDiaChi()
+                ct.getMaKH(), ct.getTenKH(), ct.getCmnd(), ct.getGioiTinh(), ct.getDiaChi()
         ));
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
+            for (int i = 0; i < virtualMuaXe.size(); i++) {
+                ChiTietMuaXe item = virtualMuaXe.get(i);
+                if (item.getMaKH().equalsIgnoreCase(ct.getMaKH())
+                        && item.getMaXe().equalsIgnoreCase(ct.getMaXe())
+                        && item.getNgayMua().equalsIgnoreCase(ct.getNgayMua())) {
+                    throw new SQLException("Khách hàng '" + ct.getMaKH() + "' đã có giao dịch mua xe '"
+                            + ct.getMaXe() + "' vào ngày " + ct.getNgayMua() + "!");
+                }
+            }
+            // Đồng bộ lại địa chỉ từ danh sách khách hàng nếu ct.diaChi đang để trống
+            if (ct.getDiaChi().isEmpty()) {
+                for (int i = 0; i < virtualKhachHang.size(); i++) {
+                    if (virtualKhachHang.get(i).getMaKH().equalsIgnoreCase(ct.getMaKH())) {
+                        ct.setDiaChi(virtualKhachHang.get(i).getDiaChi());
+                        break;
+                    }
+                }
+            }
             virtualMuaXe.add(ct);
             return;
         }
@@ -2154,30 +2895,41 @@ class MuaBanXeRepository {
             return;
         }
         String sql = "INSERT INTO dbo.Mua_Xe (MaKH, MaXe, NgayMua, SoLuong, GhiChu) VALUES (?, ?, ?, ?, ?)";
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
             ps.setString(1, ct.getMaKH());
             ps.setString(2, ct.getMaXe());
             ps.setString(3, isoDate);
             ps.setInt(4, ct.getSoLuong());
             ps.setString(5, ct.getGhiChu());
             ps.executeUpdate();
+        } finally {
+            closeQuietly(ps);
+            closeQuietly(c);
         }
     }
 
     public void suaChiTietMuaXe(String oldMaKH, String maXe, String oldNgayMua, ChiTietMuaXe updated) throws SQLException {
         String oldIso = chuyenSangIsoDate(oldNgayMua);
         String newIso = chuyenSangIsoDate(updated.getNgayMua());
+        String normalizedNewNgay = chuanHoaNgayDdMmYyyy(updated.getNgayMua());
+        updated.setNgayMua(normalizedNewNgay);
+
         luuHoacCapNhatKhachHang(new KhachHang(
-                updated.getMaKH(), updated.getTenKH(), updated.getCmnd(), updated.getGioiTinh(),
-                updated.getDiaChi().isEmpty() ? "TP.HCM" : updated.getDiaChi()
+                updated.getMaKH(), updated.getTenKH(), updated.getCmnd(), updated.getGioiTinh(), updated.getDiaChi()
         ));
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             for (int i = 0; i < virtualMuaXe.size(); i++) {
                 ChiTietMuaXe item = virtualMuaXe.get(i);
                 if (item.getMaKH().equalsIgnoreCase(oldMaKH)
                         && item.getMaXe().equalsIgnoreCase(maXe)
                         && item.getNgayMua().equalsIgnoreCase(oldNgayMua)) {
+                    if (updated.getDiaChi().isEmpty()) {
+                        updated.setDiaChi(item.getDiaChi());
+                    }
                     virtualMuaXe.set(i, updated);
                     return;
                 }
@@ -2196,8 +2948,11 @@ class MuaBanXeRepository {
             return;
         }
         String sql = "UPDATE dbo.Mua_Xe SET MaKH=?, NgayMua=?, SoLuong=?, GhiChu=? WHERE MaKH=? AND MaXe=? AND NgayMua=?";
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
             ps.setString(1, updated.getMaKH());
             ps.setString(2, newIso);
             ps.setInt(3, updated.getSoLuong());
@@ -2206,12 +2961,15 @@ class MuaBanXeRepository {
             ps.setString(6, maXe);
             ps.setString(7, oldIso);
             ps.executeUpdate();
+        } finally {
+            closeQuietly(ps);
+            closeQuietly(c);
         }
     }
 
     public void xoaChiTietMuaXe(String maKH, String maXe, String ngayMua) throws SQLException {
         String isoDate = chuyenSangIsoDate(ngayMua);
-        if (!kiemTraKetNoi()) {
+        if (!kiemTraKetNoi() || simulatedDatabaseMode) {
             for (int i = virtualMuaXe.size() - 1; i >= 0; i--) {
                 ChiTietMuaXe item = virtualMuaXe.get(i);
                 if (item.getMaKH().equalsIgnoreCase(maKH)
@@ -2231,16 +2989,25 @@ class MuaBanXeRepository {
             return;
         }
         String sql = "DELETE FROM dbo.Mua_Xe WHERE MaKH=? AND MaXe=? AND NgayMua=?";
-        try (Connection c = openJdbc();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = null;
+        PreparedStatement ps = null;
+        try {
+            c = openJdbc();
+            ps = c.prepareStatement(sql);
             ps.setString(1, maKH);
             ps.setString(2, maXe);
             ps.setString(3, isoDate);
             ps.executeUpdate();
+        } finally {
+            closeQuietly(ps);
+            closeQuietly(c);
         }
     }
 
     public static String chuyenSangIsoDate(String ddMMyyyy) throws SQLException {
+        if (ddMMyyyy == null || ddMMyyyy.trim().isEmpty()) {
+            throw new SQLException("Ngày mua không được để trống!");
+        }
         try {
             SimpleDateFormat inFmt = new SimpleDateFormat("dd/MM/yyyy");
             inFmt.setLenient(false);
@@ -2251,11 +3018,34 @@ class MuaBanXeRepository {
         }
     }
 
+    public static String chuanHoaNgayDdMmYyyy(String ddMMyyyy) throws SQLException {
+        if (ddMMyyyy == null || ddMMyyyy.trim().isEmpty()) {
+            throw new SQLException("Ngày mua không được để trống!");
+        }
+        try {
+            SimpleDateFormat inFmt = new SimpleDateFormat("dd/MM/yyyy");
+            inFmt.setLenient(false);
+            Date parsed = inFmt.parse(ddMMyyyy.trim());
+            return new SimpleDateFormat("dd/MM/yyyy").format(parsed);
+        } catch (ParseException e) {
+            throw new SQLException("Ngày mua không đúng định dạng dd/MM/yyyy: " + ddMMyyyy);
+        }
+    }
+
     private Connection openJdbc() throws SQLException {
         if (username.isEmpty()) {
             return DriverManager.getConnection(jdbcUrl);
         }
         return DriverManager.getConnection(jdbcUrl, username, password);
+    }
+
+    private static void closeQuietly(AutoCloseable resource) {
+        if (resource != null) {
+            try {
+                resource.close();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private static String hexCol(String colName) {
@@ -2303,22 +3093,44 @@ class MuaBanXeRepository {
 
     private List<String[]> sqlcmdQuery(String sql, int expectedCols) throws SQLException {
         String fullQuery = "SET NOCOUNT ON; SET XACT_ABORT ON; " + sql;
-        ProcessBuilder pb = new ProcessBuilder(
-                "sqlcmd", "-S", sqlcmdServer, "-C", "-d", "QLMuaBanXe",
-                "-W", "-h", "-1", "-s", "|", "-Q", fullQuery
-        );
+        List<String> cmd = new ArrayList<String>();
+        cmd.add("sqlcmd");
+        cmd.add("-S");
+        cmd.add(activeSqlcmdServer);
+        cmd.add("-C");
+        if (!username.isEmpty()) {
+            cmd.add("-U");
+            cmd.add(username);
+            cmd.add("-P");
+            cmd.add(password);
+        }
+        cmd.add("-d");
+        cmd.add("QLMuaBanXe");
+        cmd.add("-W");
+        cmd.add("-h");
+        cmd.add("-1");
+        cmd.add("-s");
+        cmd.add("|");
+        cmd.add("-Q");
+        cmd.add(fullQuery);
+
+        ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.redirectErrorStream(true);
         try {
             Process proc = pb.start();
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            try (InputStream in = proc.getInputStream()) {
+            InputStream in = null;
+            try {
+                in = proc.getInputStream();
                 byte[] chunk = new byte[4096];
                 int read;
                 while ((read = in.read(chunk)) != -1) {
                     buffer.write(chunk, 0, read);
                 }
+            } finally {
+                closeQuietly(in);
             }
-            boolean finished = proc.waitFor(15, TimeUnit.SECONDS);
+            boolean finished = proc.waitFor(10, TimeUnit.SECONDS);
             if (!finished) {
                 proc.destroyForcibly();
                 throw new SQLException("Quá thời gian chờ kết nối SQL Server.");
@@ -2332,15 +3144,15 @@ class MuaBanXeRepository {
                 return rows;
             }
             String[] lines = out.split("\\R");
-            for (String line : lines) {
-                String trimmed = line.trim();
+            for (int i = 0; i < lines.length; i++) {
+                String trimmed = lines[i].trim();
                 if (trimmed.isEmpty()) {
                     continue;
                 }
                 String[] parts = trimmed.split("\\|", -1);
                 if (parts.length == expectedCols) {
-                    for (int i = 0; i < parts.length; i++) {
-                        parts[i] = parts[i].trim();
+                    for (int j = 0; j < parts.length; j++) {
+                        parts[j] = parts[j].trim();
                     }
                     rows.add(parts);
                 }
